@@ -1,0 +1,141 @@
+* {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+ 
+    body {
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+ 
+    .card {
+      background: #fff;
+      width: 260px;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      position: relative;
+      margin: 8% 0 0 0;
+    }
+ 
+    /* Green accent bar top-right */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 5%;
+      right: 0;
+      width: 12%;
+      height: 4%;
+      background: #5a9e5a;
+    }
+ 
+    /* Card inner wrapper */
+    .card-inner {
+      display: flex;
+      flex-direction: column;
+    }
+ 
+    /* Icon area */
+    .card-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 36px 20px 20px;
+    }
+ 
+    .card-icon i {
+      font-size: 64px;
+      color: #333;
+    }
+ 
+    /* Text content */
+    .card-body {
+      padding: 10px 24px 24px;
+      text-align: center;
+    }
+ 
+    .card-title {
+      font-family: 'Merriweather', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 10px;
+    }
+ 
+    .card-text {
+      font-size: 12.5px;
+      color: #888;
+      line-height: 1.65;
+      margin-bottom: 20px;
+    }
+ 
+    /* Button */
+    .card-btn {
+      display: inline-block;
+      background: #5a9e5a;
+      color: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 9px 28px;
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+ 
+    .card-btn:hover {
+      background: #4a8a4a;
+    }
+ 
+    /* Mobile — horizontal layout */
+    @media (max-width: 480px) {
+      .card {
+        width: 100%;
+        max-width: 100%;
+      }
+ 
+      .card-inner {
+        flex-direction: row;
+        align-items: center;
+      }
+ 
+      .card-icon {
+        flex-shrink: 0;
+        padding: 20px 16px 20px 20px;
+      }
+ 
+      .card-icon i {
+        font-size: 42px;
+      }
+ 
+      .card-body {
+        padding: 16px 16px 16px 8px;
+        text-align: left;
+        flex: 1;
+      }
+ 
+      .card-title {
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+ 
+      .card-text {
+        font-size: 11.5px;
+        margin-bottom: 12px;
+      }
+ 
+      .card-btn {
+        display: block;
+        text-align: center;
+        padding: 8px 16px;
+      }
+    }
