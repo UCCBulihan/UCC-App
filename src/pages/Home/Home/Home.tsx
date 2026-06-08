@@ -1,6 +1,7 @@
-import Cards from './cards/Cards.tsx'
+import Cards from '../cards/Cards.tsx'
 
 function Home() {
+
   return (
     <section>
       <Cards />

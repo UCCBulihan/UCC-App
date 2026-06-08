@@ -1,9 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import "./login.css";
 
 function Login() {
+  const navigate = useNavigate();
 
-  const handleGoogleLogin = () => {
-    console.log("Sign in with Google");
+  const handleLogin = () => {
+    navigate("/home");
   };
 
   return (
@@ -30,14 +32,14 @@ function Login() {
           </a>
         </div>
 
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={handleLogin}>
           <i className="fa-solid fa-arrow-right-to-bracket" aria-hidden="true" />
           Login
         </button>
 
         <div className="divider"><span>or</span></div>
 
-        <button className="btn-google" onClick={handleGoogleLogin}>
+        <button className="btn-google" onClick={handleLogin}>
           <i className="fa-brands fa-google" />
           Sign in with Google
         </button>
@@ -50,5 +52,4 @@ function Login() {
   );
 }
 
-
-export default Login
+export default Login;

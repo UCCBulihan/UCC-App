@@ -1,11 +1,12 @@
 /* ============================================
-   Login.css — UCC App
+   login.css — UCC App (scoped to .wrap)
    Font: Merriweather (heading) + Source Sans 3
    ============================================ */
 
-*,
-*::before,
-*::after {
+/* Scoped reset — Login elements lang */
+.wrap *,
+.wrap *::before,
+.wrap *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -23,18 +24,18 @@
 }
 
 /* ---------- Card ---------- */
-.card {
+.wrap .card {
   background: #ffffff;
   border: 1px solid #e2e6ea;
   border-radius: 16px;
   padding: 2.25rem 2rem;
   width: 100%;
-  max-width: 420px;
-  overflow: hidden; /* prevents child elements from bleeding out */
+  max-width: 480px;
+  overflow: hidden;
 }
 
 /* ---------- Heading ---------- */
-.card h1 {
+.wrap .card h1 {
   font-family: 'Merriweather', serif;
   font-size: 26px;
   font-weight: 700;
@@ -44,12 +45,12 @@
 }
 
 /* ---------- Form fields ---------- */
-.field {
+.wrap .field {
   width: 100%;
   margin-bottom: 1.1rem;
 }
 
-.field label {
+.wrap .field label {
   display: block;
   font-size: 13.5px;
   font-weight: 600;
@@ -58,13 +59,13 @@
   letter-spacing: 0.1px;
 }
 
-/* Input with icon */
-.input-wrap {
+/* ---------- Input with icon ---------- */
+.wrap .input-wrap {
   position: relative;
   width: 100%;
 }
 
-.input-wrap i {
+.wrap .input-wrap i {
   position: absolute;
   left: 12px;
   top: 50%;
@@ -75,7 +76,7 @@
   z-index: 1;
 }
 
-.input-wrap input {
+.wrap .input-wrap input {
   display: block;
   width: 100%;
   padding: 10px 12px 10px 36px;
@@ -89,17 +90,17 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.input-wrap input::placeholder {
+.wrap .input-wrap input::placeholder {
   color: #c0c4cc;
 }
 
-.input-wrap input:focus {
+.wrap .input-wrap input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
 }
 
 /* ---------- Forgot password ---------- */
-.forgot {
+.wrap .forgot {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -110,13 +111,13 @@
   transition: color 0.15s ease;
 }
 
-.forgot:hover {
+.wrap .forgot:hover {
   color: #1d4ed8;
   text-decoration: underline;
 }
 
 /* ---------- Login button ---------- */
-.btn-primary {
+.wrap .btn-primary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -136,31 +137,31 @@
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.btn-primary:hover {
+.wrap .btn-primary:hover {
   background: #1d4ed8;
 }
 
-.btn-primary:active {
+.wrap .btn-primary:active {
   transform: scale(0.98);
 }
 
 /* ---------- Divider ---------- */
-.divider {
+.wrap .divider {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 0.85rem;
 }
 
-.divider::before,
-.divider::after {
+.wrap .divider::before,
+.wrap .divider::after {
   content: '';
   flex: 1;
   height: 1px;
   background: #e5e7eb;
 }
 
-.divider span {
+.wrap .divider span {
   font-size: 12px;
   color: #9ca3af;
   font-weight: 600;
@@ -169,7 +170,7 @@
 }
 
 /* ---------- Google button ---------- */
-.btn-google {
+.wrap .btn-google {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -187,25 +188,25 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.btn-google:hover {
+.wrap .btn-google:hover {
   background: #f9fafb;
   border-color: #b0b7c3;
 }
 
-.btn-google .fa-google {
+.wrap .btn-google .fa-google {
   color: #ea4335;
   font-size: 16px;
 }
 
 /* ---------- Footer ---------- */
-.footer {
+.wrap .footer {
   text-align: center;
   font-size: 13.5px;
   color: #6b7280;
   margin-top: 1.4rem;
 }
 
-.footer a {
+.wrap .footer a {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -215,19 +216,19 @@
   transition: color 0.15s ease;
 }
 
-.footer a:hover {
+.wrap .footer a:hover {
   color: #1d4ed8;
   text-decoration: underline;
 }
 
 /* ---------- Mobile (max 480px) ---------- */
 @media (max-width: 480px) {
-  .card {
+  .wrap .card {
     padding: 1.75rem 1.25rem;
     border-radius: 12px;
   }
 
-  .card h1 {
+  .wrap .card h1 {
     font-size: 22px;
   }
 }
