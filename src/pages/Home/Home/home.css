@@ -1,0 +1,11 @@
+section{
+    border: 1px solid red;
+
+
+    background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      /* min-height: 100vh; */
+      font-family: 'Source Sans 3', sans-serif;
+}
