@@ -1,131 +1,160 @@
-import { useState, useEffect } from 'react';
 import './pledges.css';
-import {
-  MONTHS, type SundayTracker,
-  loadData, saveData,
-  getSundays, fmt, buildCSV
-} from './PledgesUtils';
-import './pledges.css';
+import { useState } from 'react';
+import { usePledges } from './usePledges';
+import { MONTHS, fmt } from './PledgesUtils';
+
+const USERS = [
+  { id: 1, name: 'Juan Dela Cruz' },
+  { id: 2, name: 'Maria Santos' },
+  { id: 3, name: 'Pedro Reyes' }
+];
 
 export default function Pledges() {
-  const now = new Date();
-  const [curMonth, setCurMonth] = useState(now.getMonth());
-  const [curYear,  setCurYear]  = useState(now.getFullYear());
-  const [data, setData]         = useState<SundayTracker>({});
+  const {
+    curMonth,
+    setCurMonth,
+    curYear,
+    setCurYear,
+    data,
+    sundays,
+    total,
+    paidCount,
+    years,
+    handleAmount,
+    handleNote,
+    exportCSV
+  } = usePledges();
 
-  useEffect(() => {
-    setData(loadData(curMonth, curYear));
-  }, [curMonth, curYear]);
-
-  useEffect(() => {
-    saveData(curMonth, curYear, data);
-  }, [data, curMonth, curYear]);
-
-  const sundays = getSundays(curMonth, curYear);
-  const total   = sundays.reduce((sum, d) => {
-    const v = parseFloat(data[d.getDate()]?.amount || '0');
-    return sum + (v > 0 ? v : 0);
-  }, 0);
-  const paidCount = sundays.filter(d =>
-    parseFloat(data[d.getDate()]?.amount || '0') > 0
-  ).length;
-
-  const handleAmount = (day: number, value: string) =>
-    setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
-
-  const handleNote = (day: number, value: string) =>
-    setData(prev => ({ ...prev, [day]: { ...prev[day], notes: value } }));
-
-  const exportCSV = () => {
-    const csv = buildCSV(sundays, data, curMonth, curYear);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `sundays_${MONTHS[curMonth]}_${curYear}.csv`;
-    a.click();
-  };
+  const [selectedUser, setSelectedUser] = useState(USERS[0].id);
 
   return (
     <div className="container">
+
+      {/* HEADER */}
       <div className="header">
         <h1>Sunday Tracker</h1>
-        <p>Track amounts received every Sunday</p>
+        <p>Admin table view (multi-user ready)</p>
       </div>
 
-      <div className="selects">
-        <select value={curMonth} onChange={e => setCurMonth(Number(e.target.value))}>
-          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+      {/* FILTERS */}
+      <div className="filters">
+
+        <select
+          value={selectedUser}
+          onChange={e => setSelectedUser(Number(e.target.value))}
+        >
+          {USERS.map(u => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
         </select>
-        <select value={curYear} onChange={e => setCurYear(Number(e.target.value))}>
-          {Array.from({ length: 9 }, (_, i) => now.getFullYear() - 3 + i).map(y => (
+
+        <select
+          value={curMonth}
+          onChange={e => setCurMonth(Number(e.target.value))}
+        >
+          {MONTHS.map((m, i) => (
+            <option key={i} value={i}>{m}</option>
+          ))}
+        </select>
+
+        <select
+          value={curYear}
+          onChange={e => setCurYear(Number(e.target.value))}
+        >
+          {years.map(y => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
+
+        <button className="export-btn" onClick={exportCSV}>
+          Export CSV
+        </button>
       </div>
 
-      <div className="stats">
-        <div className="stat"><div className="stat-label">Sundays</div>
-          <div className="stat-value">{sundays.length}</div></div>
-        <div className="stat"><div className="stat-label">Paid</div>
-          <div className="stat-value">{paidCount}</div></div>
-        <div className="stat"><div className="stat-label">Total Amount</div>
-          <div className="stat-value">{fmt(total)}</div></div>
-        <div className="stat"><div className="stat-label">Average / Sunday</div>
-          <div className="stat-value">{paidCount > 0 ? fmt(total / paidCount) : '₱0.00'}</div></div>
-      </div>
+      {/* TABLE */}
+      <div className="table-wrapper">
 
-      <div className="section-head">
-        <span>{MONTHS[curMonth]} {curYear}</span>
-        <button onClick={exportCSV}>Export CSV</button>
-      </div>
+        <table className="pledge-table">
 
-      <div className="entries">
-        {sundays.length === 0 ? (
-          <p className="empty">No Sundays this month.</p>
-        ) : sundays.map((d, i) => {
-          const day  = d.getDate();
-          const saved = data[day] || {};
-          const paid  = parseFloat(saved.amount || '0') > 0;
-          return (
-            <div key={day} className="entry-card">
-              <div className="entry-top">
-                <div className="entry-date">
-                  <span className="entry-day">Sunday {i + 1}</span>
-                  <span className="entry-full-date">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {sundays.map((d, i) => {
+              const day = d.getDate();
+              const saved = data[day] || {};
+              const paid = parseFloat(saved.amount || '0') > 0;
+
+              return (
+                <tr key={day}>
+
+                  <td>{i + 1}</td>
+
+                  <td>
                     {d.toLocaleDateString('en-PH', {
-                      month: 'short', day: 'numeric', year: 'numeric'
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
                     })}
-                  </span>
-                </div>
-                <span className={`badge ${paid ? 'badge-paid' : 'badge-unpaid'}`}>
-                  {paid ? 'Paid' : 'Unpaid'}
-                </span>
-              </div>
-              <div className="entry-bottom">
-                <div className="amount-wrap">
-                  <span className="peso">₱</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={0.01}
-                    placeholder="0.00"
-                    value={saved.amount || ''}
-                    className={`amount-input ${paid ? 'has-value' : ''}`}
-                    onChange={e => handleAmount(day, e.target.value)}
-                  />
-                </div>
-                <input
-                  type="text"
-                  className="notes-input"
-                  placeholder="Note..."
-                  value={saved.notes || ''}
-                  onChange={e => handleNote(day, e.target.value)}
-                />
-              </div>
-            </div>
-          );
-        })}
+                  </td>
+
+                  <td>
+                    <div className="amount-cell">
+                      ₱
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={saved.amount || ''}
+                        onChange={e =>
+                          handleAmount(day, e.target.value)
+                        }
+                      />
+                    </div>
+                  </td>
+
+                  <td>
+                    <span className={`status ${paid ? 'paid' : 'unpaid'}`}>
+                      {paid ? 'Paid' : 'Unpaid'}
+                    </span>
+                  </td>
+
+                  <td>
+                    <input
+                      type="text"
+                      value={saved.notes || ''}
+                      placeholder="Add note..."
+                      onChange={e =>
+                        handleNote(day, e.target.value)
+                      }
+                    />
+                  </td>
+
+                </tr>
+              );
+            })}
+          </tbody>
+
+        </table>
+
       </div>
+
+      {/* SUMMARY */}
+      <div className="summary">
+        <div>Sundays: {sundays.length}</div>
+        <div>Paid: {paidCount}</div>
+        <div>Total: {fmt(total)}</div>
+      </div>
+
     </div>
   );
 }

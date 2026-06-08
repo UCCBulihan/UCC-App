@@ -1,237 +1,165 @@
-    * { box-sizing: border-box; margin: 0; padding: 0; }
- 
-    :root {
-      --bg: #f2f2f0;
-      --white: #ffffff;
-      --text: #111;
-      --muted: #888;
-      --border: #e0e0dc;
-      --green: #16a34a;
-      --green-bg: #f0fdf4;
-      --red: #dc2626;
-      --red-bg: #fef2f2;
-      --amber: #d97706;
-      --amber-bg: #fffbeb;
-      --radius: 12px;
-    }
- 
-    body {
-      font-family: 'Geist', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px 16px 80px;
-      font-size: 14px;
-    }
- 
-    /* Header */
-    .header {
-      margin-bottom: 20px;
-    }
- 
-    .header h1 {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
-    }
- 
-    .header p {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 3px;
-    }
- 
-    /* Selects row */
-    .selects {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
- 
-    .selects select {
-      flex: 1;
-      background: var(--white);
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-family: 'Geist', sans-serif;
-      font-size: 14px;
-      color: var(--text);
-      font-weight: 500;
-      outline: none;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 30px;
-    }
- 
-    /* Summary cards */
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
- 
-    .stat {
-      background: var(--white);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-    }
- 
-    .stat.wide { grid-column: 1 / -1; }
- 
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
- 
-    .stat-value {
-      font-family: 'Geist Mono', monospace;
-      font-size: 22px;
-      font-weight: 500;
-      letter-spacing: -0.5px;
-    }
- 
-    .stat.s-total .stat-value { color: var(--green); }
-    .stat.s-avg   .stat-value { color: var(--amber); }
- 
-    /* Section heading */
-    .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
- 
-    .section-head span {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
- 
-    .export-btn {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: var(--text);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-family: 'Geist', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
- 
-    /* Sunday cards */
-    .entries { display: flex; flex-direction: column; gap: 8px; }
- 
-    .entry-card {
-      background: var(--white);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-    }
- 
-    .entry-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
- 
-    .entry-date {
-      display: flex;
-      flex-direction: column;
-    }
- 
-    .entry-day {
-      font-size: 18px;
-      font-weight: 600;
-      font-family: 'Geist Mono', monospace;
-      letter-spacing: -0.5px;
-      line-height: 1;
-    }
- 
-    .entry-full-date {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 3px;
-    }
- 
-    .badge {
-      font-size: 11px;
-      font-weight: 500;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-family: 'Geist Mono', monospace;
-    }
- 
-    .badge-paid   { background: var(--green-bg); color: var(--green); }
-    .badge-unpaid { background: var(--red-bg); color: var(--red); }
- 
-    .entry-bottom {
-      display: flex;
-      gap: 8px;
-    }
- 
-    .amount-wrap {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex: 1;
-    }
- 
-    .peso {
-      font-family: 'Geist Mono', monospace;
-      font-size: 13px;
-      color: var(--muted);
-    }
- 
-    .amount-input {
-      flex: 1;
-      background: var(--bg);
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 10px;
-      font-family: 'Geist Mono', monospace;
-      font-size: 15px;
-      font-weight: 500;
-      color: var(--text);
-      text-align: right;
-      outline: none;
-      -webkit-appearance: none;
-      transition: border-color 0.15s;
-    }
- 
-    .amount-input:focus { border-color: var(--text); }
- 
-    .amount-input.has-value {
-      background: var(--green-bg);
-      border-color: var(--green);
-      color: var(--green);
-    }
- 
-    .notes-input {
-      width: 110px;
-      background: var(--bg);
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 10px;
-      font-family: 'Geist', sans-serif;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s;
-    }
- 
-    .notes-input:focus { border-color: var(--text); }
-    .notes-input::placeholder { color: var(--muted); }
+/* RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #f2f2f0;
+  --white: #ffffff;
+  --text: #111;
+  --muted: #888;
+  --border: #e0e0dc;
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --radius: 12px;
+}
+
+body {
+  font-family: 'Geist', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 24px 16px 60px;
+}
+
+/* CONTAINER (IMPORTANT FIX FOR SIZE) */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* HEADER */
+.header {
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.header p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* FILTERS */
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.filters select {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  font-size: 13px;
+}
+
+.export-btn {
+  padding: 10px 14px;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* TABLE WRAPPER */
+.table-wrapper {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+/* TABLE */
+.pledge-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 950px;
+}
+
+/* HEADER STICKY */
+.pledge-table th {
+  position: sticky;
+  top: 0;
+  background: #fafafa;
+  z-index: 1;
+}
+
+/* CELLS */
+.pledge-table th,
+.pledge-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+/* AMOUNT */
+.amount-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amount-cell input {
+  width: 140px;
+  padding: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  text-align: right;
+  font-family: 'Geist Mono', monospace;
+}
+
+.amount-cell input:focus {
+  border-color: var(--text);
+}
+
+/* STATUS */
+.status {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Geist Mono', monospace;
+}
+
+.status.paid {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.status.unpaid {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+/* NOTES */
+.pledge-table input[type="text"] {
+  width: 180px;
+  padding: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+}
+
+/* SUMMARY */
+.summary {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
