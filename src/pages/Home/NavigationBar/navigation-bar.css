@@ -1,0 +1,126 @@
+
+
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: relative;
+    }
+
+    .logo {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111;
+      text-decoration: none;
+    }
+
+    .logo span { color: #5a9e5a; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      color: #555;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-links a:hover {
+      background: #f5f5f5;
+      color: #111;
+    }
+
+    .nav-links a.active {
+      color: #111;
+      font-weight: 500;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      font-size: 13px;
+      color: #555;
+      background: none;
+      border: 1px solid #ddd;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-ghost:hover { background: #f5f5f5; }
+
+    .btn-primary {
+      font-size: 13px;
+      color: #fff;
+      background: #7F77DD;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    .btn-primary:hover { opacity: 0.88; }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 24px;
+    }
+
+    .mobile-menu {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 1.5rem 16px;
+      border-top: 1px solid #e5e5e5;
+      background: #fff;
+    }
+
+    .mobile-menu.open { display: flex; }
+
+    .mobile-menu a {
+      font-size: 14px;
+      color: #555;
+      text-decoration: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+    }
+
+    .mobile-menu a:hover {
+      background: #f5f5f5;
+      color: #111;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e5e5e5;
+      margin: 6px 0;
+    }
+
+    .mobile-btns { display: flex; gap: 8px; margin-top: 4px; }
+    .mobile-btns button { flex: 1; }
+
+    /* Mobile breakpoint */
+    @media (max-width: 560px) {
+      .nav-links, .nav-right { display: none; }
+      .hamburger { display: block; }
+    }

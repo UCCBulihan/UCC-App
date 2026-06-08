@@ -1,9 +1,9 @@
-* {
+/* * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
- 
+    } */
+/*  
     body {
       background: #f0f0f0;
       display: flex;
@@ -11,7 +11,7 @@
       align-items: center;
       min-height: 100vh;
       font-family: 'Source Sans 3', sans-serif;
-    }
+    } */
  
     .card {
       background: #fff;

@@ -1,11 +1,15 @@
 import Cards from '../cards/Cards.tsx'
+import NavigationBar from '../NavigationBar/NavigationBar.tsx'
 
 function Home() {
 
   return (
-    <section>
-      <Cards />
-    </section>
+    <>
+    <NavigationBar />
+      <section>
+        <Cards />
+      </section>
+    </>
   )
 }
 
