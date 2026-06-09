@@ -14,10 +14,14 @@ function Login() {
         <h1>Login</h1>
 
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="username">Username</label>
           <div className="input-wrap">
-            <i className="fa-regular fa-envelope" aria-hidden="true" />
-            <input type="email" id="email" placeholder="email@example.com" />
+            <i className="fa-regular fa-user" aria-hidden="true" />
+            <input
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+            />
           </div>
         </div>
 
