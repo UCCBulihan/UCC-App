@@ -7,10 +7,6 @@ import { useNavigate } from "react-router-dom";
 function Cards() {
   const navigate = useNavigate();
 
-  const handlePledges = () => {
-    navigate("/pledges");
-  }
-
     return (
     <div className="card-grid">
       {cards.map((card) => (
