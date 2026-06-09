@@ -1,0 +1,235 @@
+/* ============================================
+   signup.css — UCC App (scoped to .wrap)
+   Font: Merriweather (heading) + Source Sans 3
+   ============================================ */
+
+/* Scoped reset — Signup elements lang */
+.wrap *,
+.wrap *::before,
+.wrap *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Page wrapper ---------- */
+.wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1rem;
+  background: #f0f2f5;
+  font-family: 'Source Sans 3', sans-serif;
+}
+
+/* ---------- Card ---------- */
+.wrap .card {
+  background: #ffffff;
+  border: 1px solid #e2e6ea;
+  border-radius: 16px;
+  padding: 2.25rem 2rem;
+  width: 400px;
+  max-width: 480px;
+  overflow: hidden;
+}
+
+/* ---------- Heading ---------- */
+.wrap .card h1 {
+  font-family: 'Merriweather', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1.75rem;
+  letter-spacing: -0.3px;
+}
+
+/* ---------- Form fields ---------- */
+.wrap .field {
+  width: 100%;
+  margin-bottom: 1.1rem;
+}
+
+.wrap .field label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 6px;
+  letter-spacing: 0.1px;
+}
+
+.wrap .field label .optional {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+/* ---------- Two-column row (First + Last name) ---------- */
+.wrap .row-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ---------- Input with icon ---------- */
+.wrap .input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.wrap .input-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wrap .input-wrap input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #111827;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wrap .input-wrap input::placeholder {
+  color: #c0c4cc;
+}
+
+.wrap .input-wrap input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
+}
+
+/* ---------- Create account button ---------- */
+.wrap .btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  margin: 1.25rem 0 0.85rem;
+  background: #2563eb;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Source Sans 3', sans-serif;
+  cursor: pointer;
+  letter-spacing: 0.1px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.wrap .btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.wrap .btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* ---------- Divider ---------- */
+.wrap .divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0.85rem;
+}
+
+.wrap .divider::before,
+.wrap .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.wrap .divider span {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ---------- Google button ---------- */
+.wrap .btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.wrap .btn-google:hover {
+  background: #f9fafb;
+  border-color: #b0b7c3;
+}
+
+.wrap .btn-google .fa-google {
+  color: #ea4335;
+  font-size: 16px;
+}
+
+/* ---------- Footer ---------- */
+.wrap .footer {
+  text-align: center;
+  font-size: 13.5px;
+  color: #6b7280;
+  margin-top: 1.4rem;
+}
+
+.wrap .footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.wrap .footer a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ---------- Mobile (max 480px) ---------- */
+@media (max-width: 480px) {
+  .wrap .card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  .wrap .card h1 {
+    font-size: 22px;
+  }
+
+  .wrap .row-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

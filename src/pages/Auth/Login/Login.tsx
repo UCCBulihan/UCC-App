@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import "./login.css";
 
-function Login() {
+export default function Login() {
   const navigate = useNavigate();
 
   const handleLogin = () => {
@@ -49,11 +49,12 @@ function Login() {
         </button>
 
         <p className="footer">
-          New user? <a href="#"><i className="fa-regular fa-user" aria-hidden="true" /> Create account here</a>
+          New user?{" "}
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/signup"); }}>
+            <i className="fa-regular fa-user" aria-hidden="true" /> Create account here
+          </a>
         </p>
       </div>
     </div>
   );
 }
-
-export default Login;

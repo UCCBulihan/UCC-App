@@ -3,7 +3,7 @@ import Cards from '../cards/Cards.tsx'
 import NavigationBar from '../NavigationBar/NavigationBar.tsx'
 import './home.css'
 
-function Home() {
+export default function Home() {
   return (
     <div className="app-layout">
       <NavigationBar />
@@ -13,5 +13,3 @@ function Home() {
     </div>
   )
 }
-
-export default Home
