@@ -1,18 +1,16 @@
 import Cards from '../cards/Cards.tsx'
 import NavigationBar from '../NavigationBar/NavigationBar.tsx'
-import './home.css';
+import './home.css'
 
 function Home() {
-
   return (
-    <>
-    <NavigationBar />
-      <section>
+    <div className="app-layout">
+      <NavigationBar />
+      <main className="main-content">
         <Cards />
-      </section>
-    </>
+      </main>
+    </div>
   )
-  
 }
 
 export default Home

@@ -1,7 +1,12 @@
-section{
-    background: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: 'Source Sans 3', sans-serif;
+.app-layout {
+  display: flex;
+  height: 100vh;
+  font-family: 'Source Sans 3', sans-serif;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f0f0f0;
+  padding: 1.5rem;
 }
