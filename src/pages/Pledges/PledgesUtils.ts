@@ -13,17 +13,18 @@ export const MONTHS = [
   'July','August','September','October','November','December'
 ];
 
-export const storeKey = (m: number, y: number) =>
-  `sunday_tracker_${y}_${m}`;
+// ✅ userId added to key
+export const storeKey = (m: number, y: number, userId: number) =>
+  `sunday_tracker_${userId}_${y}_${m}`;
 
-export const loadData = (m: number, y: number): SundayTracker => {
+export const loadData = (m: number, y: number, userId: number): SundayTracker => {
   try {
-    return JSON.parse(localStorage.getItem(storeKey(m, y)) || '{}');
+    return JSON.parse(localStorage.getItem(storeKey(m, y, userId)) || '{}');
   } catch { return {}; }
 };
 
-export const saveData = (m: number, y: number, d: SundayTracker) =>
-  localStorage.setItem(storeKey(m, y), JSON.stringify(d));
+export const saveData = (m: number, y: number, userId: number, d: SundayTracker) =>
+  localStorage.setItem(storeKey(m, y, userId), JSON.stringify(d));
 
 export const getSundays = (month: number, year: number): Date[] => {
   const out: Date[] = [];

@@ -10,6 +10,9 @@ const USERS = [
 ];
 
 export default function Pledges() {
+  const [selectedUser, setSelectedUser] = useState(USERS[0].id);
+
+  // ✅ Pass selectedUser so the hook loads the right data
   const {
     curMonth,
     setCurMonth,
@@ -23,9 +26,7 @@ export default function Pledges() {
     handleAmount,
     handleNote,
     exportCSV
-  } = usePledges();
-
-  const [selectedUser, setSelectedUser] = useState(USERS[0].id);
+  } = usePledges(selectedUser);
 
   return (
     <div className="container">
@@ -39,6 +40,7 @@ export default function Pledges() {
       {/* FILTERS */}
       <div className="filters">
 
+        {/* ✅ Switching user now reloads the table */}
         <select
           value={selectedUser}
           onChange={e => setSelectedUser(Number(e.target.value))}

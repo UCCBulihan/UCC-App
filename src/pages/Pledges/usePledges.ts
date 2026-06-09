@@ -8,7 +8,8 @@ import {
   MONTHS
 } from './PledgesUtils';
 
-export function usePledges() {
+// ✅ Accepts userId so each user has their own data
+export function usePledges(userId: number) {
   const now = new Date();
 
   // State
@@ -16,15 +17,15 @@ export function usePledges() {
   const [curYear, setCurYear] = useState(now.getFullYear());
   const [data, setData] = useState<SundayTracker>({});
 
-  // Load data when month/year changes
+  // ✅ Reload data when month, year, OR user changes
   useEffect(() => {
-    setData(loadData(curMonth, curYear));
-  }, [curMonth, curYear]);
+    setData(loadData(curMonth, curYear, userId));
+  }, [curMonth, curYear, userId]);
 
-  // Save data whenever changes happen
+  // ✅ Save data scoped to this user
   useEffect(() => {
-    saveData(curMonth, curYear, data);
-  }, [data, curMonth, curYear]);
+    saveData(curMonth, curYear, userId, data);
+  }, [data, curMonth, curYear, userId]);
 
   // Derived values
   const sundays = getSundays(curMonth, curYear);
@@ -71,7 +72,7 @@ export function usePledges() {
     a.click();
   };
 
-  // Years list (cleaned from component)
+  // Years list
   const years = Array.from(
     { length: 9 },
     (_, i) => now.getFullYear() - 3 + i
