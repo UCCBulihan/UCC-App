@@ -1,5 +1,3 @@
-import './PledgeTable.css';
-
 interface PledgeEntry {
   amount?: string;
   notes?: string;

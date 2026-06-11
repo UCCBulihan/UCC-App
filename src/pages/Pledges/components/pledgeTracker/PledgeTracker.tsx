@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { usePledges } from '../pledgesTable/usePledges';
-import PledgeHeader from '../pledgeHeader/PledgeHeader';
-import PledgeFilters from '../pledgeFilters/PledgeFilters';
-import PledgeTable from '../pledgesTable/PledgeTable';
-import PledgeSummary from '../pledgeSummary/PledgeSummary';
+import { usePledges } from './props/pledgesTable/usePledges';
+import PledgeHeader from './props/pledgeHeader/PledgeHeader';
+import PledgeFilters from './props/pledgeFilters/PledgeFilters';
+import PledgeTable from './props/pledgesTable/PledgeTable';
+import PledgeSummary from './props/pledgeSummary/PledgeSummary';
 
 const USERS = [
   { id: 1, name: 'Juan Dela Cruz' },

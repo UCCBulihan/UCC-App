@@ -1,4 +1,4 @@
-import './PledgeTable.css' with { type: 'css' };
+import './PledgeTable.css';
 
 interface PledgeEntry {
   amount?: string;
