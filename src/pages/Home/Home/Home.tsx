@@ -8,7 +8,7 @@ export default function Home() {
     <div className="app-layout">
       <NavigationBar />
       <main className="main-content">
-        <Cards />
+        {/* <Cards /> */}
       </main>
     </div>
   )
