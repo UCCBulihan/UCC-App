@@ -3,6 +3,7 @@ import {NavLink} from 'react-router-dom'
 import { MenuService } from '../../../../services/MenuService';
 import './navigation-bar.css'
 
+
 const menuService = new MenuService();
 
 
@@ -21,7 +22,7 @@ function NavigationBar() {
           to={item.path}
           className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}
         >
-          <i className={item.iconClass}></i>
+          <i className={`${item.iconClass} icon`}></i>
           <span>{item.name}</span>
         </NavLink>
        ))}

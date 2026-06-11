@@ -2,10 +2,10 @@ import type { IMenuService, MenuItem } from './interface/IMenuService';
 
 export class MenuService implements IMenuService {
     private menuItems: MenuItem[] = [
-        {sortOrder: 1, name: 'Home', iconClass: 'home-icon', path: '/home'},
-        {sortOrder: 2, name: 'Profile', iconClass: 'profile-icon', path: '/profile'},
-        {sortOrder: 3, name: 'Settings', iconClass: 'settings-icon', path: '/settings'},
-        {sortOrder: 4, name: 'Pledges', iconClass: 'pledges-icon', path: '/pledges'}
+        { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',              path: '/home' },
+        { sortOrder: 2, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
+        { sortOrder: 3, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },
+        { sortOrder: 4, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges' }
     ];
 
     getMenuItems(): MenuItem[] {
