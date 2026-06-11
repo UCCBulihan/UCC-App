@@ -1,4 +1,3 @@
-import React from 'react';
 import './pledges.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import PledgeTracker from './components/pledgeTracker/PledgeTracker';
