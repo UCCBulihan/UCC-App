@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from '../../../../../../firebase/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, setDoc } from 'firebase/firestore';
 import {
   type SundayTracker,
   getSundays,
@@ -25,7 +25,7 @@ export function usePledges(userId: number) {
   }, []);
 
   useEffect(() => {
-    if (!userId || !currentUser) return;
+    if (!userId || !currentUser) return; 
 
     async function fetchPledges() {
       try {
@@ -44,14 +44,14 @@ export function usePledges(userId: number) {
 
         snapshot.forEach(doc => {
           const d = doc.data();
-          const day = (d.dateAdded as Timestamp).toDate().getDate(); // 👈 kuha ng day
-          newData[day] = { // 👈 ilagay sa newData
+          const day = (d.dateAdded as Timestamp).toDate().getDate(); 
+          newData[day] = { 
             amount: String(d.amount ?? ''),
             notes: d.notes ?? ''
           };
         });
 
-        setData(newData); // 👈 ngayon may laman na
+        setData(newData);
       } catch (err: any) {
         console.error('fetchPledges error:', err?.message);
       }
@@ -74,8 +74,19 @@ export function usePledges(userId: number) {
     d => getAmount(d.getDate()) > 0
   ).length;
 
-  const handleAmount = (day: number, value: string) =>
+  const handleAmount = async (day: number, value: string) => {
     setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
+
+    const date = new Date(curYear, curMonth, day);
+    const docId = `${userId}_${curYear}_${curMonth}_${day}`;
+    
+    await setDoc(doc(db, 'PLEDGES', docId), {
+      userId,
+      amount: parseFloat(value) || 0,
+      dateAdded: Timestamp.fromDate(date),
+      dateModified: Timestamp.fromDate(new Date()),
+    }, { merge: true });
+  };
 
   const handleNote = (day: number, value: string) =>
     setData(prev => ({ ...prev, [day]: { ...prev[day], notes: value } }));

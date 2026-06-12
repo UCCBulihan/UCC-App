@@ -8,7 +8,7 @@ import { MONTHS } from '../pledgesTable/PledgesUtils';
 interface FirestoreUser {
   id: string;
   userId: number;
-  userName: string;
+  name: string;
 }
 
 interface PledgeFiltersProps {
@@ -42,15 +42,15 @@ export default function PledgeFilters({
 //   }
 // }
 
-async function fixDocument() {
-  const docRef = doc(db, 'PLEDGES', '1JYcRQmStfY3UnKajCOH');
-  await updateDoc(docRef, {
-    'amount': 100,        // walang space
-    'modifiedBy': 'Test User',  // walang space
-    'dateModified': new Date('2026-06-08'),  // walang space
-  });
-  console.log('Fixed!');
-}
+// async function fixDocument() {
+//   const docRef = doc(db, 'PLEDGES', '1JYcRQmStfY3UnKajCOH');
+//   await updateDoc(docRef, {
+//     'amount': 100,        // walang space
+//     'modifiedBy': 'Test User',  // walang space
+//     'dateModified': new Date('2026-06-08'),  // walang space
+//   });
+//   console.log('Fixed!');
+// }
 
 async function fetchUsers() {
   try {
@@ -70,10 +70,10 @@ async function fetchUsers() {
     const list: FirestoreUser[] = [];
     snapshot.forEach(doc => {
       const d = doc.data();
-      console.log('userId:', d.userId, '| userName:', d.userName);
-      if (d.userId && d.userName && !seen.has(d.userId)) {
+      console.log('userId:', d.userId, '| name:', d.name);
+      if (d.userId && d.name && !seen.has(d.userId)) {
         seen.add(d.userId);
-        list.push({ id: doc.id, userId: d.userId, userName: d.userName });
+        list.push({ id: doc.id, userId: d.userId, name: d.name });
       }
     });
 
@@ -99,13 +99,13 @@ useEffect(() => {
   return (
     <div className="filters">
       {/* <button onClick={addTestUser}>Add Test</button> */}
-      <button onClick={fixDocument}>Fix Doc</button>
+      {/* <button onClick={fixDocument}>Fix Doc</button> */}
       <select value={selectedUser} onChange={e => setSelectedUser(Number(e.target.value))}>
         {users.length === 0 ? (
           <option disabled>Loading...</option>
         ) : (
           users.map(u => (
-            <option key={u.id} value={u.userId}>{u.userName}</option>
+            <option key={u.id} value={u.userId}>{u.name}</option>
           ))
         )}
       </select>

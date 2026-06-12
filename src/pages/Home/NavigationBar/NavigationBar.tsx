@@ -44,15 +44,13 @@ function NavigationBar() {
         </button>
       )}
 
-      {/* Overlay — only shown on mobile when sidebar is open */}
       {isOpen && (
         <div className="sidebar-overlay" onClick={handleOverlayClick} />
       )}
 
       <nav className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
-        {/* Sidebar header: logo + close button side by side on mobile */}
         <div className="sidebar-header">
-          <a href="#" className="logo">UCC<span>App</span></a>
+          <a href="#" className="logo">UCC <span>App</span></a>
           <button
             className="sidebar-close"
             onClick={() => setIsOpen(false)}
