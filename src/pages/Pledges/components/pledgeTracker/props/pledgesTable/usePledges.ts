@@ -1,33 +1,65 @@
 import { useState, useEffect } from 'react';
+import { auth, db } from '../../../../../../firebase/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import {
   type SundayTracker,
-  loadData,
-  saveData,
   getSundays,
   buildCSV,
   MONTHS
 } from './PledgesUtils';
 
-// ✅ Accepts userId so each user has their own data
 export function usePledges(userId: number) {
   const now = new Date();
 
-  // State
   const [curMonth, setCurMonth] = useState(now.getMonth());
   const [curYear, setCurYear] = useState(now.getFullYear());
   const [data, setData] = useState<SundayTracker>({});
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // ✅ Reload data when month, year, OR user changes
   useEffect(() => {
-    setData(loadData(curMonth, curYear, userId));
-  }, [curMonth, curYear, userId]);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsub();
+  }, []);
 
-  // ✅ Save data scoped to this user
   useEffect(() => {
-    saveData(curMonth, curYear, userId, data);
-  }, [data, curMonth, curYear, userId]);
+    if (!userId || !currentUser) return;
 
-  // Derived values
+    async function fetchPledges() {
+      try {
+        const start = new Date(curYear, curMonth, 1);
+        const end = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+
+        const q = query(
+          collection(db, 'PLEDGES'),
+          where('userId', '==', userId),
+          where('dateAdded', '>=', Timestamp.fromDate(start)),
+          where('dateAdded', '<=', Timestamp.fromDate(end))
+        );
+
+        const snapshot = await getDocs(q);
+        const newData: SundayTracker = {};
+
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const day = (d.dateAdded as Timestamp).toDate().getDate(); // 👈 kuha ng day
+          newData[day] = { // 👈 ilagay sa newData
+            amount: String(d.amount ?? ''),
+            notes: d.notes ?? ''
+          };
+        });
+
+        setData(newData); // 👈 ngayon may laman na
+      } catch (err: any) {
+        console.error('fetchPledges error:', err?.message);
+      }
+    }
+
+    fetchPledges();
+  }, [userId, curMonth, curYear, currentUser]);
+
   const sundays = getSundays(curMonth, curYear);
 
   const getAmount = (day: number) =>
@@ -42,59 +74,28 @@ export function usePledges(userId: number) {
     d => getAmount(d.getDate()) > 0
   ).length;
 
-  // Handlers
   const handleAmount = (day: number, value: string) =>
-    setData(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        amount: value
-      }
-    }));
+    setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
 
   const handleNote = (day: number, value: string) =>
-    setData(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        notes: value
-      }
-    }));
+    setData(prev => ({ ...prev, [day]: { ...prev[day], notes: value } }));
 
-  // CSV export
   const exportCSV = () => {
     const csv = buildCSV(sundays, data, curMonth, curYear);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(
-      new Blob([csv], { type: 'text/csv' })
-    );
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = `sundays_${MONTHS[curMonth]}_${curYear}.csv`;
     a.click();
   };
 
-  // Years list
-  const years = Array.from(
-    { length: 9 },
-    (_, i) => now.getFullYear() - 3 + i
-  );
+  const years = Array.from({ length: 9 }, (_, i) => now.getFullYear() - 3 + i);
 
   return {
-    // state
-    curMonth,
-    setCurMonth,
-    curYear,
-    setCurYear,
+    curMonth, setCurMonth,
+    curYear, setCurYear,
     data,
-
-    // derived
-    sundays,
-    total,
-    paidCount,
-    years,
-
-    // actions
-    handleAmount,
-    handleNote,
-    exportCSV
+    sundays, total, paidCount, years,
+    handleAmount, handleNote, exportCSV,
+    currentUser,
   };
 }

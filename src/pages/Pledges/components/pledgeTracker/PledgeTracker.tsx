@@ -5,14 +5,8 @@ import PledgeFilters from './props/pledgeFilters/PledgeFilters';
 import PledgeTable from './props/pledgesTable/PledgeTable';
 import PledgeSummary from './props/pledgeSummary/PledgeSummary';
 
-const USERS = [
-  { id: 1, name: 'Juan Dela Cruz' },
-  { id: 2, name: 'Maria Santos' },
-  { id: 3, name: 'Pedro Reyes' }
-];
-
 export default function PledgeTracker() {
-  const [selectedUser, setSelectedUser] = useState(USERS[0].id);
+  const [selectedUser, setSelectedUser] = useState(1);
 
   const {
     curMonth, setCurMonth,
@@ -20,12 +14,13 @@ export default function PledgeTracker() {
     data, sundays,
     total, paidCount,
     years, handleAmount,
-    handleNote, exportCSV
+    handleNote, exportCSV,
+    currentUser, 
   } = usePledges(selectedUser);
 
   return (
     <>
-      <PledgeHeader />
+      <PledgeHeader currentUser={currentUser} /> 
       <PledgeFilters
         selectedUser={selectedUser}
         setSelectedUser={setSelectedUser}
