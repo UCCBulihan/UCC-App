@@ -21,7 +21,7 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate("/home");
     } catch (err: any) {
-      setError("Mali ang email o password. Subukan ulit.");
+      setError("Wrong Password. Please Try Again");
     }
   };
 
@@ -33,7 +33,7 @@ export default function Login() {
       await signInWithPopup(auth, provider);
       navigate("/home");
     } catch (err: any) {
-      setError("Hindi makapag-login sa Google. Subukan ulit.");
+      setError("Unable to log in to Google. Try again..");
     }
   };
 
@@ -65,13 +65,12 @@ export default function Login() {
             <input
               type="password"
               id="pwd"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <a href="#" className="forgot">
-            <i className="fa-regular fa-circle-question" aria-hidden="true" /> Forgot password?
-          </a>
+          
         </div>
 
         <button className="btn-primary" onClick={handleLogin}>
