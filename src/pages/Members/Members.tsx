@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import './members.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase/firebase'; 
-
+import { db } from '../../firebase/firebase';
 
 interface Member {
   id: string; // firestore doc id
@@ -25,9 +24,10 @@ function initials(m: Member) {
   return (m.firstName[0] || '') + (m.lastName[0] || '');
 }
 
+// ✅ userId removed — auto-generated na
 const emptyForm = {
   firstName: '', middleName: '', lastName: '',
-  userName: '', userId: '', addedBy: '', isPledger: false,
+  userName: '', addedBy: '', isPledger: false,
 };
 
 export default function Members() {
@@ -46,14 +46,14 @@ export default function Members() {
       try {
         const snapshot = await getDocs(collection(db, 'MEMBERS'));
         const list: Member[] = snapshot.docs.map(docSnap => {
-        const data = docSnap.data() as any;
-        return {
+          const data = docSnap.data() as any;
+          return {
             id: docSnap.id,
             ...data,
             dateAdded: data.dateAdded?.toDate
-            ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : data.dateAdded ?? '',
-        };
+              ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : data.dateAdded ?? '',
+          };
         });
         setMembers(list);
       } catch (err: any) {
@@ -99,8 +99,13 @@ export default function Members() {
   }
 
   async function addMember() {
-    const { firstName, lastName, userId, userName, addedBy } = form;
-    if (!firstName.trim() || !lastName.trim() || !userId || !userName.trim() || !addedBy.trim()) {
+    // ✅ Auto-generate userId: max existing + 1, or 1 if no members
+    const nextId = members.length > 0
+      ? Math.max(...members.map(m => m.userId)) + 1
+      : 1;
+
+    const { firstName, lastName, userName, addedBy } = form;
+    if (!firstName.trim() || !lastName.trim() || !userName.trim() || !addedBy.trim()) {
       setFormError('Please fill in all required fields.');
       return;
     }
@@ -111,7 +116,7 @@ export default function Members() {
         middleName: form.middleName.trim(),
         lastName: lastName.trim(),
         userName: userName.trim(),
-        userId: parseInt(userId),
+        userId: nextId,
         isPledger: form.isPledger,
         addedBy: addedBy.trim(),
         dateAdded: formatDate(),
@@ -129,13 +134,13 @@ export default function Members() {
 
   async function togglePledger(id: string, current: boolean) {
     try {
-        await updateDoc(doc(db, 'MEMBERS', id), { isPledger: !current });
-        setMembers(prev => prev.map(m => m.id === id ? { ...m, isPledger: !current } : m));
-        showToast(`Member marked as ${!current ? 'Pledger' : 'Non-Pledger'}.`);
+      await updateDoc(doc(db, 'MEMBERS', id), { isPledger: !current });
+      setMembers(prev => prev.map(m => m.id === id ? { ...m, isPledger: !current } : m));
+      showToast(`Member marked as ${!current ? 'Pledger' : 'Non-Pledger'}.`);
     } catch (err: any) {
-        console.error('Update error:', err?.message);
+      console.error('Update error:', err?.message);
     }
-    }
+  }
 
   async function deleteMember(id: string) {
     try {
@@ -209,7 +214,15 @@ export default function Members() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="empty-cell">
+                        <div className="empty-state">
+                          <p>Loading members…</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filtered.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="empty-cell">
                         <div className="empty-state">
@@ -220,7 +233,7 @@ export default function Members() {
                     </tr>
                   ) : (
                     filtered.map((m, i) => (
-                      <tr key={i}>
+                      <tr key={m.id}>
                         <td>
                           <div className="member-cell">
                             <div className="avatar">{initials(m)}</div>
@@ -232,15 +245,15 @@ export default function Members() {
                         <td>{m.userName}</td>
                         <td><span className="id-chip">#{m.userId}</span></td>
                         <td>
-                            <button
-                                className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
-                                onClick={() => togglePledger(m.id, m.isPledger)}
-                                title={m.isPledger ? 'Click to remove pledger' : 'Click to mark as pledger'}
-                            >
-                                {m.isPledger
-                                ? <><i className="fa-solid fa-circle-check" aria-hidden="true" /> Yes</>
-                                : <span>No</span>}
-                            </button>
+                          <button
+                            className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
+                            onClick={() => togglePledger(m.id, m.isPledger)}
+                            title={m.isPledger ? 'Click to remove pledger' : 'Click to mark as pledger'}
+                          >
+                            {m.isPledger
+                              ? <><i className="fa-solid fa-circle-check" aria-hidden="true" /> Yes</>
+                              : <span>No</span>}
+                          </button>
                         </td>
                         <td>
                           <span className="added-by">
@@ -321,21 +334,13 @@ export default function Members() {
               </div>
             </div>
 
+            {/* ✅ userId field removed — username lang ang kailangan */}
             <p className="section-label">Account</p>
-            <div className="row-2">
-              <div className="field">
-                <label htmlFor="userId">User ID <span className="req">*</span></label>
-                <div className="input-wrap">
-                  <i className="fa-solid fa-hashtag icon" aria-hidden="true" />
-                  <input type="number" id="userId" placeholder="e.g. 2" min="1" value={form.userId} onChange={handleFormChange} />
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="userName">Username <span className="req">*</span></label>
-                <div className="input-wrap">
-                  <i className="fa-regular fa-user icon" aria-hidden="true" />
-                  <input type="text" id="userName" placeholder="e.g. jsmith" value={form.userName} onChange={handleFormChange} />
-                </div>
+            <div className="field">
+              <label htmlFor="userName">Username <span className="req">*</span></label>
+              <div className="input-wrap">
+                <i className="fa-regular fa-user icon" aria-hidden="true" />
+                <input type="text" id="userName" placeholder="e.g. jsmith" value={form.userName} onChange={handleFormChange} />
               </div>
             </div>
 
