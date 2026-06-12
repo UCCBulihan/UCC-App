@@ -5,7 +5,7 @@ import './navigation-bar.css'
 
 const menuService = new MenuService();
 
-function NavigationBar() {
+export default function NavigationBar() {
   const menuItems = menuService.getMenuItems();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -82,5 +82,3 @@ function NavigationBar() {
     </>
   );
 }
-
-export default NavigationBar;

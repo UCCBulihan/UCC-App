@@ -2,21 +2,26 @@ import type { IMenuService, MenuItem } from './interface/IMenuService';
 
 export class MenuService implements IMenuService {
     private menuItems: MenuItem[] = [
-        { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',              path: '/home' },
-        { sortOrder: 2, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
-        { sortOrder: 3, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },
-        { sortOrder: 4, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges' }
+        { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',               path: '/home' },
+        { sortOrder: 6, name: 'Members',  iconClass: 'fa-solid fa-users',               path: '/members' },
+        { sortOrder: 16, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges' },
+        { sortOrder: 11, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
+        { sortOrder: 21, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },
     ];
 
     getMenuItems(): MenuItem[] {
         return this.menuItems;
     }
 
-    pledges(sortOrder: number): MenuItem {
+    home(sortOrder: number): MenuItem {
         return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
     }
 
-    home(sortOrder: number): MenuItem {
+    members(sortOrder: number): MenuItem {
+        return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
+    }
+
+    pledges(sortOrder: number): MenuItem {
         return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
     }
 
