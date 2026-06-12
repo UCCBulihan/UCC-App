@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { getDocs, collection, updateDoc, doc, getDocsFromServer } from 'firebase/firestore';
+import { collection, getDocsFromServer } from 'firebase/firestore';
 import { auth, db } from '../../../../../../firebase/firebase';
 import { MONTHS } from '../pledgesTable/PledgesUtils';
-
 
 interface FirestoreUser {
   id: string;
@@ -28,87 +27,55 @@ export default function PledgeFilters({
   curMonth, setCurMonth,
   curYear, setCurYear,
   years, exportCSV,
-  setSelectedUserName 
+  setSelectedUserName
 }: PledgeFiltersProps) {
   const [users, setUsers] = useState<FirestoreUser[]>([]);
 
-// async function addTestUser() {
-//   try {
-//     const docRef = await addDoc(collection(db, 'PLEDGES'), {
-//       userId: 1,
-//       userName: 'Test User'
-//     });
-//     console.log('Added doc ID:', docRef.id);
-//   } catch (err: any) {
-//     console.error('Error:', err?.message);
-//   }
-// }
+  async function fetchUsers() {
+    try {
+      const snapshot = await getDocsFromServer(collection(db, 'MEMBERS'));
 
-// async function fixDocument() {
-//   const docRef = doc(db, 'PLEDGES', '1JYcRQmStfY3UnKajCOH');
-//   await updateDoc(docRef, {
-//     'amount': 100,        // walang space
-//     'modifiedBy': 'Test User',  // walang space
-//     'dateModified': new Date('2026-06-08'),  // walang space
-//   });
-//   console.log('Fixed!');
-// }
+      const seen = new Set<number>();
+      const list: FirestoreUser[] = [];
 
-async function fetchUsers() {
-  try {
-    
-    console.log('Fetching users...');
-     console.log('DB app:', (db as any)._databaseId);
-     const snapshot = await getDocsFromServer(collection(db, 'PLEDGES'));
-    console.log('Size:', snapshot.size);
-    console.log('Size:', snapshot.size);
-    console.log('Empty:', snapshot.empty);
-    
-    snapshot.forEach(doc => {
-      console.log('Doc data:', doc.data()); 
-    });
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        if (d.isPledger && d.userId && !seen.has(d.userId)) {
+          seen.add(d.userId);
+          list.push({
+            id: doc.id,
+            userId: d.userId,
+            name: `${d.firstName} ${d.lastName}`
+          });
+        }
+      });
 
-    const seen = new Set<number>();
-    const list: FirestoreUser[] = [];
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      console.log('userId:', d.userId, '| name:', d.name);
-      if (d.userId && d.name && !seen.has(d.userId)) {
-        seen.add(d.userId);
-        list.push({ id: doc.id, userId: d.userId, name: d.name });
-      }
-    });
-
-    console.log('Final list:', list); 
-    setUsers(list);
-      if (list.length > 0) 
+      setUsers(list);
+      if (list.length > 0) {
         setSelectedUser(list[0].userId);
         setSelectedUserName(list[0].name);
-          } catch (err: any) {
-            console.error('Firestore error:', err?.message);
-          }
-}
-useEffect(() => {
-  const unsub = onAuthStateChanged(auth, (user) => {
-    console.log('Auth state:', user); 
-    if (user) {
-      fetchUsers();
-    } else {
-      console.log('No user logged in');
+      }
+    } catch (err: any) {
+      console.error('Firestore error:', err?.message);
     }
-  });
-  return () => unsub();
-}, []);
+  }
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchUsers();
+      }
+    });
+    return () => unsub();
+  }, []);
 
   return (
     <div className="filters">
-      {/* <button onClick={addTestUser}>Add Test</button> */}
-      {/* <button onClick={fixDocument}>Fix Doc</button> */}
       <select value={selectedUser} onChange={e => {
-          const selected = users.find(u => u.userId === Number(e.target.value));
-          setSelectedUser(Number(e.target.value));
-          setSelectedUserName(selected?.name ?? ''); 
-        }}>
+        const selected = users.find(u => u.userId === Number(e.target.value));
+        setSelectedUser(Number(e.target.value));
+        setSelectedUserName(selected?.name ?? '');
+      }}>
         {users.length === 0 ? (
           <option disabled>Loading...</option>
         ) : (
