@@ -9,7 +9,7 @@ import {
   MONTHS
 } from './PledgesUtils';
 
-export function usePledges(userId: number) {
+export function usePledges(userId: number, name: string) {
   const now = new Date();
 
   const [curMonth, setCurMonth] = useState(now.getMonth());
@@ -81,6 +81,7 @@ export function usePledges(userId: number) {
     const docId = `${userId}_${curYear}_${curMonth}_${day}`;
     
     await setDoc(doc(db, 'PLEDGES', docId), {
+      name : name,
       userId,
       amount: parseFloat(value) || 0,
       dateAdded: Timestamp.fromDate(date),

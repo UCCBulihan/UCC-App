@@ -20,13 +20,15 @@ interface PledgeFiltersProps {
   setCurYear: (year: number) => void;
   years: number[];
   exportCSV: () => void;
+  setSelectedUserName: (name: string) => void;
 }
 
 export default function PledgeFilters({
   selectedUser, setSelectedUser,
   curMonth, setCurMonth,
   curYear, setCurYear,
-  years, exportCSV
+  years, exportCSV,
+  setSelectedUserName 
 }: PledgeFiltersProps) {
   const [users, setUsers] = useState<FirestoreUser[]>([]);
 
@@ -79,10 +81,12 @@ async function fetchUsers() {
 
     console.log('Final list:', list); 
     setUsers(list);
-    if (list.length > 0) setSelectedUser(list[0].userId);
-  } catch (err: any) {
-    console.error('Firestore error:', err?.message);
-  }
+      if (list.length > 0) 
+        setSelectedUser(list[0].userId);
+        setSelectedUserName(list[0].name);
+          } catch (err: any) {
+            console.error('Firestore error:', err?.message);
+          }
 }
 useEffect(() => {
   const unsub = onAuthStateChanged(auth, (user) => {
@@ -100,7 +104,11 @@ useEffect(() => {
     <div className="filters">
       {/* <button onClick={addTestUser}>Add Test</button> */}
       {/* <button onClick={fixDocument}>Fix Doc</button> */}
-      <select value={selectedUser} onChange={e => setSelectedUser(Number(e.target.value))}>
+      <select value={selectedUser} onChange={e => {
+          const selected = users.find(u => u.userId === Number(e.target.value));
+          setSelectedUser(Number(e.target.value));
+          setSelectedUserName(selected?.name ?? ''); 
+        }}>
         {users.length === 0 ? (
           <option disabled>Loading...</option>
         ) : (

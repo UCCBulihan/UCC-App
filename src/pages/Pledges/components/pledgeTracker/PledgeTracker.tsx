@@ -7,6 +7,7 @@ import PledgeSummary from './props/pledgeSummary/PledgeSummary';
 
 export default function PledgeTracker() {
   const [selectedUser, setSelectedUser] = useState(1);
+  const [selectedUserName, setSelectedUserName] = useState('');
 
   const {
     curMonth, setCurMonth,
@@ -16,7 +17,7 @@ export default function PledgeTracker() {
     years, handleAmount,
     handleNote, exportCSV,
     currentUser, 
-  } = usePledges(selectedUser);
+  } = usePledges(selectedUser, selectedUserName);
 
   return (
     <>
@@ -30,6 +31,7 @@ export default function PledgeTracker() {
         setCurYear={setCurYear}
         years={years}
         exportCSV={exportCSV}
+        setSelectedUserName={setSelectedUserName} 
       />
       <PledgeTable
         sundays={sundays}
