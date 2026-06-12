@@ -30,6 +30,7 @@ export default function PledgeFilters({
   setSelectedUserName
 }: PledgeFiltersProps) {
   const [users, setUsers] = useState<FirestoreUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   async function fetchUsers() {
     try {
@@ -57,7 +58,9 @@ export default function PledgeFilters({
       }
     } catch (err: any) {
       console.error('Firestore error:', err?.message);
-    }
+    }finally {
+    setLoadingUsers(false); 
+  }
   }
 
   useEffect(() => {
@@ -76,15 +79,16 @@ export default function PledgeFilters({
         setSelectedUser(Number(e.target.value));
         setSelectedUserName(selected?.name ?? '');
       }}>
-        {users.length === 0 ? (
+        {loadingUsers ? (
           <option disabled>Loading...</option>
+        ) : users.length === 0 ? (
+          <option disabled>No pledgers found</option> 
         ) : (
           users.map(u => (
             <option key={u.id} value={u.userId}>{u.name}</option>
           ))
         )}
       </select>
-
       <select value={curMonth} onChange={e => setCurMonth(Number(e.target.value))}>
         {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
       </select>

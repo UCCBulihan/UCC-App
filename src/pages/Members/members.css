@@ -51,6 +51,43 @@
   white-space: nowrap;
 }
 
+.toggle-pledger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #d1d5db;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.toggle-pledger:hover {
+  border-color: #6ee7b7;
+  color: #059669;
+  background: #f0fdf4;
+}
+
+.toggle-pledger.active {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #059669;
+}
+
+.toggle-pledger.active:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.toggle-pledger.active:hover::after {
+  content: ' Remove';
+}
+
 .btn-add:hover { background: #1d4ed8; }
 .btn-add:active { transform: scale(0.98); }
 

@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import './members.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase'; 
+
 
 interface Member {
+  id: string; // firestore doc id
   firstName: string;
   middleName: string;
   lastName: string;
@@ -12,12 +16,6 @@ interface Member {
   addedBy: string;
   dateAdded: string;
 }
-
-const SEED_MEMBERS: Member[] = [
-  { firstName: 'John', middleName: 'Joe', lastName: 'Smith', userName: 'Admin', userId: 1, isPledger: true, addedBy: 'Test User', dateAdded: 'Jun 11, 2026' },
-  { firstName: 'Maria', middleName: '', lastName: 'Santos', userName: 'msantos', userId: 2, isPledger: false, addedBy: 'Admin', dateAdded: 'Jun 11, 2026' },
-  { firstName: 'Jose', middleName: 'Reyes', lastName: 'Cruz', userName: 'jcruz', userId: 3, isPledger: true, addedBy: 'Admin', dateAdded: 'Jun 12, 2026' },
-];
 
 function formatDate() {
   return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -33,14 +31,39 @@ const emptyForm = {
 };
 
 export default function Members() {
-  const [members, setMembers] = useState<Member[]>(SEED_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [toast, setToast] = useState('');
+  const [loading, setLoading] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const snapshot = await getDocs(collection(db, 'MEMBERS'));
+        const list: Member[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data() as any;
+        return {
+            id: docSnap.id,
+            ...data,
+            dateAdded: data.dateAdded?.toDate
+            ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : data.dateAdded ?? '',
+        };
+        });
+        setMembers(list);
+      } catch (err: any) {
+        console.error('Fetch error:', err?.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchMembers();
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal(); };
@@ -75,30 +98,53 @@ export default function Members() {
     setForm(prev => ({ ...prev, [id]: type === 'checkbox' ? checked : value }));
   }
 
-  function addMember() {
+  async function addMember() {
     const { firstName, lastName, userId, userName, addedBy } = form;
     if (!firstName.trim() || !lastName.trim() || !userId || !userName.trim() || !addedBy.trim()) {
       setFormError('Please fill in all required fields.');
       return;
     }
-    const newMember: Member = {
-      firstName: firstName.trim(),
-      middleName: form.middleName.trim(),
-      lastName: lastName.trim(),
-      userName: userName.trim(),
-      userId: parseInt(userId),
-      isPledger: form.isPledger,
-      addedBy: addedBy.trim(),
-      dateAdded: formatDate(),
-    };
-    setMembers(prev => [...prev, newMember]);
-    closeModal();
-    showToast('Member added successfully.');
+
+    try {
+      const newMember = {
+        firstName: firstName.trim(),
+        middleName: form.middleName.trim(),
+        lastName: lastName.trim(),
+        userName: userName.trim(),
+        userId: parseInt(userId),
+        isPledger: form.isPledger,
+        addedBy: addedBy.trim(),
+        dateAdded: formatDate(),
+      };
+
+      const docRef = await addDoc(collection(db, 'MEMBERS'), newMember);
+      setMembers(prev => [...prev, { id: docRef.id, ...newMember }]);
+      closeModal();
+      showToast('Member added successfully.');
+    } catch (err: any) {
+      console.error('Add error:', err?.message);
+      setFormError('Failed to add member. Try again.');
+    }
   }
 
-  function deleteMember(idx: number) {
-    setMembers(prev => prev.filter((_, i) => i !== idx));
-    showToast('Member removed.');
+  async function togglePledger(id: string, current: boolean) {
+    try {
+        await updateDoc(doc(db, 'MEMBERS', id), { isPledger: !current });
+        setMembers(prev => prev.map(m => m.id === id ? { ...m, isPledger: !current } : m));
+        showToast(`Member marked as ${!current ? 'Pledger' : 'Non-Pledger'}.`);
+    } catch (err: any) {
+        console.error('Update error:', err?.message);
+    }
+    }
+
+  async function deleteMember(id: string) {
+    try {
+      await deleteDoc(doc(db, 'MEMBERS', id));
+      setMembers(prev => prev.filter(m => m.id !== id));
+      showToast('Member removed.');
+    } catch (err: any) {
+      console.error('Delete error:', err?.message);
+    }
   }
 
   const filtered = members.filter(m => {
@@ -186,9 +232,15 @@ export default function Members() {
                         <td>{m.userName}</td>
                         <td><span className="id-chip">#{m.userId}</span></td>
                         <td>
-                          {m.isPledger
-                            ? <span className="badge badge-yes"><i className="fa-solid fa-circle-check" style={{ fontSize: 10 }} aria-hidden="true" /> Yes</span>
-                            : <span className="badge badge-no">No</span>}
+                            <button
+                                className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
+                                onClick={() => togglePledger(m.id, m.isPledger)}
+                                title={m.isPledger ? 'Click to remove pledger' : 'Click to mark as pledger'}
+                            >
+                                {m.isPledger
+                                ? <><i className="fa-solid fa-circle-check" aria-hidden="true" /> Yes</>
+                                : <span>No</span>}
+                            </button>
                         </td>
                         <td>
                           <span className="added-by">
@@ -202,7 +254,7 @@ export default function Members() {
                             <button className="btn-icon" title="Edit" onClick={() => showToast('Edit coming soon!')}>
                               <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
                             </button>
-                            <button className="btn-icon danger" title="Delete" onClick={() => deleteMember(members.indexOf(m))}>
+                            <button className="btn-icon danger" title="Delete" onClick={() => deleteMember(m.id)}>
                               <i className="fa-regular fa-trash-can" aria-hidden="true" />
                             </button>
                           </div>

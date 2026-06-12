@@ -10,9 +10,10 @@ interface PledgeTableProps {
   data: Record<number, PledgeEntry>;
   handleAmount: (day: number, value: string) => void;
   handleNote: (day: number, value: string) => void;
+   selectedUser: number;
 }
 
-export default function PledgeTable({ sundays, data, handleAmount, handleNote }: PledgeTableProps) {
+export default function PledgeTable({ sundays, data, handleAmount, handleNote, selectedUser }: PledgeTableProps) {
   return (
     <div className="table-wrapper">
       <table className="pledge-table">
@@ -50,6 +51,7 @@ export default function PledgeTable({ sundays, data, handleAmount, handleNote }:
                       step={0.01}
                       value={saved.amount || ''}
                       onChange={e => handleAmount(day, e.target.value)}
+                      disabled={!selectedUser}
                     />
                   </div>
                 </td>

@@ -6,7 +6,7 @@ import PledgeTable from './props/pledgesTable/PledgeTable';
 import PledgeSummary from './props/pledgeSummary/PledgeSummary';
 
 export default function PledgeTracker() {
-  const [selectedUser, setSelectedUser] = useState(1);
+  const [selectedUser, setSelectedUser] = useState(0);
   const [selectedUserName, setSelectedUserName] = useState('');
 
   const {
@@ -38,6 +38,7 @@ export default function PledgeTracker() {
         data={data}
         handleAmount={handleAmount}
         handleNote={handleNote}
+        selectedUser={selectedUser}
       />
       <PledgeSummary
         sundayCount={sundays.length}

@@ -9,7 +9,7 @@ import {
   MONTHS
 } from './PledgesUtils';
 
-export function usePledges(userId: number, name: string) {
+export function usePledges(userId: number, userName: string) {
   const now = new Date();
 
   const [curMonth, setCurMonth] = useState(now.getMonth());
@@ -25,7 +25,7 @@ export function usePledges(userId: number, name: string) {
   }, []);
 
   useEffect(() => {
-    if (!userId || !currentUser) return; 
+    if (!userId || !currentUser || !userName) return; // 👈 isa lang, tatlo ang condition
 
     async function fetchPledges() {
       try {
@@ -44,8 +44,8 @@ export function usePledges(userId: number, name: string) {
 
         snapshot.forEach(doc => {
           const d = doc.data();
-          const day = (d.dateAdded as Timestamp).toDate().getDate(); 
-          newData[day] = { 
+          const day = (d.dateAdded as Timestamp).toDate().getDate();
+          newData[day] = {
             amount: String(d.amount ?? ''),
             notes: d.notes ?? ''
           };
@@ -58,7 +58,7 @@ export function usePledges(userId: number, name: string) {
     }
 
     fetchPledges();
-  }, [userId, curMonth, curYear, currentUser]);
+  }, [userId, curMonth, curYear, currentUser, userName]); // 👈 idagdag ang userName
 
   const sundays = getSundays(curMonth, curYear);
 
@@ -75,13 +75,15 @@ export function usePledges(userId: number, name: string) {
   ).length;
 
   const handleAmount = async (day: number, value: string) => {
+    if (!userId || !userName) return; // 👈 guard, hindi mag-save kapag walang selected user
+
     setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
 
     const date = new Date(curYear, curMonth, day);
     const docId = `${userId}_${curYear}_${curMonth}_${day}`;
-    
+
     await setDoc(doc(db, 'PLEDGES', docId), {
-      name : name,
+      name: userName,
       userId,
       amount: parseFloat(value) || 0,
       dateAdded: Timestamp.fromDate(date),
