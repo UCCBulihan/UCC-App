@@ -165,7 +165,7 @@ export default function Members() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={7} className="empty-cell">
                         <div className="empty-state">
                           <i className="fa-regular fa-user" aria-hidden="true" />
                           <p>No members found.</p>
