@@ -25,7 +25,10 @@ export function usePledges(userId: number, userName: string) {
   }, []);
 
   useEffect(() => {
-    if (!userId || !currentUser || !userName) return; // 👈 isa lang, tatlo ang condition
+    if (!userId || !currentUser || !userName) {
+    setData({});
+    return;
+  }
 
     async function fetchPledges() {
       try {
@@ -58,7 +61,7 @@ export function usePledges(userId: number, userName: string) {
     }
 
     fetchPledges();
-  }, [userId, curMonth, curYear, currentUser, userName]); // 👈 idagdag ang userName
+  }, [userId, curMonth, curYear, currentUser, userName]); 
 
   const sundays = getSundays(curMonth, curYear);
 
@@ -75,8 +78,7 @@ export function usePledges(userId: number, userName: string) {
   ).length;
 
   const handleAmount = async (day: number, value: string) => {
-    if (!userId || !userName) return; // 👈 guard, hindi mag-save kapag walang selected user
-
+    if (!userId || !userName) return; 
     setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
 
     const date = new Date(curYear, curMonth, day);
