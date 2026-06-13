@@ -91,8 +91,22 @@ export function usePledges(userId: number, userName: string) {
     }, { merge: true });
   };
 
-  const handleNote = (day: number, value: string) =>
+  const handleNote = async (day: number, value: string) => {
+    if (!userId || !userName) return;
+
     setData(prev => ({ ...prev, [day]: { ...prev[day], notes: value } }));
+
+    const date = new Date(curYear, curMonth, day);
+    const docId = `${userId}_${curYear}_${curMonth}_${day}`;
+
+    await setDoc(doc(db, 'PLEDGES', docId), {
+      name: userName,
+      userId,
+      notes: value,
+      dateAdded: Timestamp.fromDate(date),
+      dateModified: Timestamp.fromDate(new Date()),
+    }, { merge: true });
+  };
 
   const exportCSV = () => {
     const csv = buildCSV(sundays, data, curMonth, curYear);
