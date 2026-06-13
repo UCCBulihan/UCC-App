@@ -6,7 +6,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/UCC-App/">  
       <App />
     </BrowserRouter>
   </StrictMode>,
