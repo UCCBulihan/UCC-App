@@ -53,8 +53,8 @@ export default function PledgeFilters({
 
       setUsers(list);
       if (list.length > 0) {
-        setSelectedUser(list[0].userId);
-        setSelectedUserName(list[0].name);
+        // setSelectedUser(list[0].userId);
+        // setSelectedUserName(list[0].name);
       }
     } catch (err: any) {
       console.error('Firestore error:', err?.message);
@@ -83,7 +83,7 @@ export default function PledgeFilters({
         {loadingUsers ? (
           <option disabled>Loading...</option>
         ) : users.length === 0 ? (
-          <option disabled>No pledgers found</option> 
+          <option disabled>No pledgers found</option>
         ) : (
           users.map(u => (
             <option key={u.id} value={u.userId}>{u.name}</option>
