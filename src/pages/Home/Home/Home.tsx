@@ -1,5 +1,5 @@
 
-import Cards from '../cards/Cards.tsx'
+
 import NavigationBar from '../NavigationBar/NavigationBar.tsx'
 import './home.css'
 
@@ -8,7 +8,6 @@ export default function Home() {
     <div className="app-layout">
       <NavigationBar />
       <main className="main-content">
-        {/* <Cards /> */}
       </main>
     </div>
   )

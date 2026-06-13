@@ -13,7 +13,7 @@ export const MONTHS = [
   'July','August','September','October','November','December'
 ];
 
-// ✅ userId added to key
+// userId added to key
 export const storeKey = (m: number, y: number, userId: number) =>
   `sunday_tracker_${userId}_${y}_${m}`;
 
@@ -45,8 +45,8 @@ export const fmt = (n: number) =>
 export const buildCSV = (
   sundays: Date[],
   data: SundayTracker,
-  month: number,
-  year: number
+  _month: number,
+  _year: number
 ) => {
   let csv = 'Sunday #,Date,Amount (PHP),Status,Note\n';
   sundays.forEach((d, i) => {

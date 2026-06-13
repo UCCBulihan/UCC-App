@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/UCC-App/',
   plugins: [react()],
-  base: '/UCC-App/',  // <-- idagdag ito, dapat tugma sa repo name mo
 })
