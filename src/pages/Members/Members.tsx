@@ -217,7 +217,6 @@ export default function Members() {
                 <thead>
                   <tr>
                     <th>Member</th>
-                    <th>User ID</th>
                     <th>Pledger</th>
                     <th>Added By</th>
                     <th>Date Added</th>
@@ -253,7 +252,7 @@ export default function Members() {
                             </span>
                           </div>
                         </td>
-                        <td><span className="id-chip">#{m.userId}</span></td>
+                        {/* <td><span className="id-chip">#{m.userId}</span></td> */}
                         <td>
                           <button
                             className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
