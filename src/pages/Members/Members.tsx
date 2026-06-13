@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import './members.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 interface Member {
-  id: string; // firestore doc id
+  id: string;
   firstName: string;
   middleName: string;
   lastName: string;
-  userName: string;
   userId: number;
   isPledger: boolean;
   addedBy: string;
   dateAdded: string;
+  isArchived: boolean;
 }
 
 function formatDate() {
@@ -24,13 +25,13 @@ function initials(m: Member) {
   return (m.firstName[0] || '') + (m.lastName[0] || '');
 }
 
-// ✅ userId removed — auto-generated na
 const emptyForm = {
   firstName: '', middleName: '', lastName: '',
-  userName: '', addedBy: '', isPledger: false,
+  isPledger: false,
 };
 
 export default function Members() {
+  const [currentUser, setCurrentUser] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
@@ -42,19 +43,30 @@ export default function Members() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, user => {
+      setCurrentUser(user?.displayName || user?.email || 'Unknown');
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     async function fetchMembers() {
       try {
         const snapshot = await getDocs(collection(db, 'MEMBERS'));
-        const list: Member[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data() as any;
-          return {
-            id: docSnap.id,
-            ...data,
-            dateAdded: data.dateAdded?.toDate
-              ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : data.dateAdded ?? '',
-          };
-        });
+        const list: Member[] = snapshot.docs
+          .map(docSnap => {
+            const data = docSnap.data() as any;
+            return {
+              id: docSnap.id,
+              ...data,
+              isArchived: data.isArchived ?? false,
+              dateAdded: data.dateAdded?.toDate
+                ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : data.dateAdded ?? '',
+            };
+          })
+          .filter(m => !m.isArchived);
         setMembers(list);
       } catch (err: any) {
         console.error('Fetch error:', err?.message);
@@ -99,13 +111,12 @@ export default function Members() {
   }
 
   async function addMember() {
-    // ✅ Auto-generate userId: max existing + 1, or 1 if no members
     const nextId = members.length > 0
       ? Math.max(...members.map(m => m.userId)) + 1
       : 1;
 
-    const { firstName, lastName, userName, addedBy } = form;
-    if (!firstName.trim() || !lastName.trim() || !userName.trim() || !addedBy.trim()) {
+    const { firstName, lastName } = form;
+    if (!firstName.trim() || !lastName.trim()) {
       setFormError('Please fill in all required fields.');
       return;
     }
@@ -115,11 +126,11 @@ export default function Members() {
         firstName: firstName.trim(),
         middleName: form.middleName.trim(),
         lastName: lastName.trim(),
-        userName: userName.trim(),
         userId: nextId,
         isPledger: form.isPledger,
-        addedBy: addedBy.trim(),
+        addedBy: currentUser,
         dateAdded: formatDate(),
+        isArchived: false,
       };
 
       const docRef = await addDoc(collection(db, 'MEMBERS'), newMember);
@@ -142,19 +153,20 @@ export default function Members() {
     }
   }
 
-  async function deleteMember(id: string) {
+  async function archiveMember(id: string) {
     try {
-      await deleteDoc(doc(db, 'MEMBERS', id));
+      await updateDoc(doc(db, 'MEMBERS', id), { isArchived: true });
       setMembers(prev => prev.filter(m => m.id !== id));
-      showToast('Member removed.');
+      showToast('Member archived.');
     } catch (err: any) {
-      console.error('Delete error:', err?.message);
+      console.error('Archive error:', err?.message);
     }
   }
 
   const filtered = members.filter(m => {
+    if (m.isArchived) return false;
     const fullName = `${m.firstName} ${m.middleName} ${m.lastName}`.toLowerCase();
-    const matchSearch = fullName.includes(search.toLowerCase()) || m.userName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = fullName.includes(search.toLowerCase());
     const matchFilter = filter === 'all' || (filter === 'yes' && m.isPledger) || (filter === 'no' && !m.isPledger);
     return matchSearch && matchFilter;
   });
@@ -183,7 +195,7 @@ export default function Members() {
               <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
               <input
                 type="text"
-                placeholder="Search by name or username…"
+                placeholder="Search by name…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -205,7 +217,6 @@ export default function Members() {
                 <thead>
                   <tr>
                     <th>Member</th>
-                    <th>Username</th>
                     <th>User ID</th>
                     <th>Pledger</th>
                     <th>Added By</th>
@@ -216,7 +227,7 @@ export default function Members() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="empty-cell">
+                      <td colSpan={6} className="empty-cell">
                         <div className="empty-state">
                           <p>Loading members…</p>
                         </div>
@@ -224,7 +235,7 @@ export default function Members() {
                     </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="empty-cell">
+                      <td colSpan={6} className="empty-cell">
                         <div className="empty-state">
                           <i className="fa-regular fa-user" aria-hidden="true" />
                           <p>No members found.</p>
@@ -232,7 +243,7 @@ export default function Members() {
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((m, i) => (
+                    filtered.map((m) => (
                       <tr key={m.id}>
                         <td>
                           <div className="member-cell">
@@ -242,7 +253,6 @@ export default function Members() {
                             </span>
                           </div>
                         </td>
-                        <td>{m.userName}</td>
                         <td><span className="id-chip">#{m.userId}</span></td>
                         <td>
                           <button
@@ -267,8 +277,8 @@ export default function Members() {
                             <button className="btn-icon" title="Edit" onClick={() => showToast('Edit coming soon!')}>
                               <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
                             </button>
-                            <button className="btn-icon danger" title="Delete" onClick={() => deleteMember(m.id)}>
-                              <i className="fa-regular fa-trash-can" aria-hidden="true" />
+                            <button className="btn-icon danger" title="Archive" onClick={() => archiveMember(m.id)}>
+                              <i className="fa-solid fa-box-archive" aria-hidden="true" />
                             </button>
                           </div>
                         </td>
@@ -334,22 +344,17 @@ export default function Members() {
               </div>
             </div>
 
-            {/* ✅ userId field removed — username lang ang kailangan */}
-            <p className="section-label">Account</p>
-            <div className="field">
-              <label htmlFor="userName">Username <span className="req">*</span></label>
-              <div className="input-wrap">
-                <i className="fa-regular fa-user icon" aria-hidden="true" />
-                <input type="text" id="userName" placeholder="e.g. jsmith" value={form.userName} onChange={handleFormChange} />
-              </div>
-            </div>
-
             <p className="section-label">Meta</p>
             <div className="field">
-              <label htmlFor="addedBy">Added By <span className="req">*</span></label>
-              <div className="input-wrap">
+              <label>Added By</label>
+              <div className="input-wrap" style={{ opacity: 0.7 }}>
                 <i className="fa-solid fa-user-shield icon" aria-hidden="true" />
-                <input type="text" id="addedBy" placeholder="e.g. Admin" value={form.addedBy} onChange={handleFormChange} />
+                <input
+                  type="text"
+                  value={currentUser}
+                  readOnly
+                  style={{ cursor: 'default', backgroundColor: 'var(--input-disabled-bg, #f5f5f5)' }}
+                />
               </div>
             </div>
 

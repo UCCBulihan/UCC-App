@@ -41,7 +41,7 @@ export default function PledgeFilters({
 
       snapshot.forEach(doc => {
         const d = doc.data();
-        if (d.isPledger && d.userId && !seen.has(d.userId)) {
+        if (d.isPledger && d.userId && !seen.has(d.userId) && !d.isArchived) {
           seen.add(d.userId);
           list.push({
             id: doc.id,
@@ -79,6 +79,7 @@ export default function PledgeFilters({
         setSelectedUser(Number(e.target.value));
         setSelectedUserName(selected?.name ?? '');
       }}>
+        <option value="">-- Select Member --</option> 
         {loadingUsers ? (
           <option disabled>Loading...</option>
         ) : users.length === 0 ? (
