@@ -7,10 +7,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ucc-app</title>
-    <script type="module" crossorigin src="/UCC-App/assets/index-DtmmfSpk.js"></script>
+    <script type="module" crossorigin src="/UCC-App/assets/index-Br66h5sK.js"></script>
     <link rel="stylesheet" crossorigin href="/UCC-App/assets/index-BKBPmS6f.css">
   </head>
   <body>
     <div id="root"></div>
   </body>
 </html>
+
+
+<script>
+  var redirect = sessionStorage.getItem('redirect');
+  if (redirect) {
+    sessionStorage.removeItem('redirect');
+    window.history.replaceState(null, null, redirect);
+  }
+</script>
