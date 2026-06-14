@@ -106,8 +106,19 @@
   margin-bottom: 16px;
 }
 
+.rpt-kpi-strip--5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 900px) {
+  .rpt-kpi-strip--5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 700px) {
-  .rpt-kpi-strip {
+  .rpt-kpi-strip,
+  .rpt-kpi-strip--5 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -135,6 +146,28 @@
   font-weight: 700;
   color: #111;
   font-variant-numeric: tabular-nums;
+}
+
+.rpt-kpi-value--red {
+  color: #dc2626;
+}
+
+.rpt-kpi-value--green {
+  color: #16a34a;
+}
+
+.rpt-kpi--net {
+  border-width: 2px;
+}
+
+.rpt-kpi--pos {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.rpt-kpi--neg {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 /* ─── Cards ────────────────────────────────────────────────────────────────── */

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocsFromServer, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, getDocsFromServer, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { auth, db } from '../../firebase/firebase';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import './PledgesReport.css';
@@ -25,6 +25,7 @@ interface MemberMonthData {
   totalSundays: number;
 }
 
+// userId → month (0-11) → data
 type ReportMatrix = Record<number, Record<number, MemberMonthData>>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ export default function PledgesReport() {
   const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [totalExpenses, setTotalExpenses] = useState(0);
 
   const years = Array.from({ length: 7 }, (_, i) => now.getFullYear() - 3 + i);
 
@@ -162,6 +164,42 @@ export default function PledgesReport() {
     });
   }, [authed, members, curYear]);
 
+  // Fetch expenses for selected year from LEDGER
+  useEffect(() => {
+    if (!authed) return;
+
+    async function fetchExpenses() {
+      const start = new Date(curYear, 0, 1);
+      const end = new Date(curYear, 11, 31, 23, 59, 59);
+
+      const q = query(
+        collection(db, 'LEDGER'),
+        where('dateAdded', '>=', Timestamp.fromDate(start)),
+        where('dateAdded', '<=', Timestamp.fromDate(end)),
+        orderBy('dateAdded', 'asc')
+      );
+
+      const snap = await getDocs(q);
+      let total = 0;
+
+      snap.forEach(d => {
+        const data = d.data();
+        const amount = data.amount ?? 0;
+        const type = data.type ?? 'EXPENSE';
+        // EXPENSE and LOAN_OUT reduce the fund; REPAYMENT adds back
+        if (type === 'EXPENSE' || type === 'LOAN_OUT') {
+          total += amount;
+        } else if (type === 'REPAYMENT') {
+          total -= amount;
+        }
+      });
+
+      setTotalExpenses(total);
+    }
+
+    fetchExpenses().catch(console.error);
+  }, [authed, curYear]);
+
   // ── Derived stats ──────────────────────────────────────────────────────────
 
   const yearlyTotals: Record<number, number> = {};
@@ -236,23 +274,24 @@ export default function PledgesReport() {
         ) : (
           <>
             {/* ── KPI Strip ── */}
-            <div className="rpt-kpi-strip">
+            <div className="rpt-kpi-strip rpt-kpi-strip--5">
               <div className="rpt-kpi">
                 <span className="rpt-kpi-label">Total Collected</span>
                 <span className="rpt-kpi-value">{fmt(grandTotal)}</span>
               </div>
+              <div className="rpt-kpi rpt-kpi--red">
+                <span className="rpt-kpi-label">Total Expenses</span>
+                <span className="rpt-kpi-value rpt-kpi-value--red">{fmt(totalExpenses)}</span>
+              </div>
+              <div className={`rpt-kpi rpt-kpi--net ${grandTotal - totalExpenses >= 0 ? 'rpt-kpi--pos' : 'rpt-kpi--neg'}`}>
+                <span className="rpt-kpi-label">Net Balance</span>
+                <span className={`rpt-kpi-value ${grandTotal - totalExpenses >= 0 ? 'rpt-kpi-value--green' : 'rpt-kpi-value--red'}`}>
+                  {fmt(grandTotal - totalExpenses)}
+                </span>
+              </div>
               <div className="rpt-kpi">
                 <span className="rpt-kpi-label">Active Pledgers</span>
                 <span className="rpt-kpi-value">{members.length}</span>
-              </div>
-              <div className="rpt-kpi">
-                <span className="rpt-kpi-label">Top Month</span>
-                <span className="rpt-kpi-value">
-                  {MONTHS_FULL[
-                    Object.entries(monthlyGrandTotals)
-                      .sort((a, b) => b[1] - a[1])[0]?.[0] as unknown as number ?? 0
-                  ]}
-                </span>
               </div>
               <div className="rpt-kpi">
                 <span className="rpt-kpi-label">Avg per Pledger</span>

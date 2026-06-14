@@ -7,6 +7,7 @@ export class MenuService implements IMenuService {
         { sortOrder: 16, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges', subMenuItems: [
             { sortOrder: 17, name: 'All Pledges', iconClass: 'fa-solid fa-list',            path: '/pledges' },
             { sortOrder: 18, name: 'Report',      iconClass: 'fa-solid fa-chart-bar',       path: '/pledges/report' },
+            { sortOrder: 19, name: 'Ledger',      iconClass: 'fa-solid fa-book',            path: '/ledger' }
         ]},
         { sortOrder: 11, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
         { sortOrder: 21, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },

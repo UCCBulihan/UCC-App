@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { usePledges } from './props/pledgesTable/usePledges';
-import PledgeHeader from './props/pledgeHeader/PledgeHeader';
-import PledgeFilters from './props/pledgeFilters/PledgeFilters';
-import PledgeTable from './props/pledgesTable/PledgeTable';
-import PledgeSummary from './props/pledgeSummary/PledgeSummary';
+import { usePledges } from './PledgeModule/pledgesTable/usePledges';
+import PledgeHeader from './PledgeModule/pledgeHeader/PledgeHeader';
+import PledgeFilters from './PledgeModule/pledgeFilters/PledgeFilters';
+import PledgeTable from './PledgeModule/pledgesTable/PledgeTable';
+import PledgeSummary from './PledgeModule/pledgeSummary/PledgeSummary';
 
 export default function PledgeTracker() {
   const [selectedUser, setSelectedUser] = useState(0);
