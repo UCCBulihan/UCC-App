@@ -1,46 +1,42 @@
-import type { UserRole, RoleLevel } from '../useRoles';
+import type { UserRole } from '../useRoles';
 
 interface Props {
   userRoles: UserRole[];
   filtered: UserRole[];
   loading: boolean;
-  onChangeRole: (id: string, newRole: RoleLevel) => void;
-  onRevoke: (id: string) => void;
+  onRemoveRole: (id: string) => void;
   onEdit: (userRole: UserRole) => void;
 }
 
-const ROLE_LEVELS: RoleLevel[] = ['Admin', 'Moderator', 'Member', 'Viewer'];
-
-function roleBadgeClass(role: RoleLevel) {
+function roleBadgeClass(role: string) {
   switch (role) {
     case 'Admin':     return 'role-badge role-admin';
     case 'Moderator': return 'role-badge role-moderator';
     case 'Member':    return 'role-badge role-member';
     case 'Viewer':    return 'role-badge role-viewer';
-    default:          return 'role-badge';
+    default:          return 'role-badge role-unassigned';
   }
 }
 
-function roleIcon(role: RoleLevel) {
+function roleIcon(role: string) {
   switch (role) {
     case 'Admin':     return 'fa-solid fa-crown';
     case 'Moderator': return 'fa-solid fa-shield-halved';
     case 'Member':    return 'fa-solid fa-user';
     case 'Viewer':    return 'fa-regular fa-eye';
-    default:          return 'fa-solid fa-user';
+    default:          return 'fa-solid fa-circle-minus';
   }
 }
 
-function avatarFallback(displayName: string) {
-  const parts = displayName.trim().split(' ');
+function avatarFallback(name: string) {
+  const parts = name.trim().split(' ');
   return parts.length >= 2
     ? (parts[0][0] || '') + (parts[parts.length - 1][0] || '')
-    : displayName.slice(0, 2).toUpperCase();
+    : (name.slice(0, 2) || '??').toUpperCase();
 }
 
 export default function RolesTable({
-  userRoles, filtered, loading,
-  onChangeRole, onRevoke, onEdit,
+  userRoles, filtered, loading, onRemoveRole, onEdit,
 }: Props) {
   return (
     <div className="members-card">
@@ -49,6 +45,7 @@ export default function RolesTable({
           <thead>
             <tr>
               <th>User</th>
+              <th>Provider</th>
               <th>Role</th>
               <th>Assigned By</th>
               <th>Date Assigned</th>
@@ -58,13 +55,13 @@ export default function RolesTable({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="empty-cell">
-                  <div className="empty-state"><p>Loading roles…</p></div>
+                <td colSpan={6} className="empty-cell">
+                  <div className="empty-state"><p>Loading users…</p></div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="empty-cell">
+                <td colSpan={6} className="empty-cell">
                   <div className="empty-state">
                     <i className="fa-regular fa-id-badge" aria-hidden="true" />
                     <p>No users found.</p>
@@ -74,74 +71,82 @@ export default function RolesTable({
             ) : (
               filtered.map((u) => (
                 <tr key={u.id}>
-                  {/* User cell */}
+
+                  {/* User */}
                   <td>
                     <div className="member-cell">
                       {u.photoURL ? (
-                        <img
-                          src={u.photoURL}
-                          alt={u.displayName}
-                          className="avatar-photo"
-                          referrerPolicy="no-referrer"
-                        />
+                        <img src={u.photoURL} alt={u.displayName}
+                          className="avatar-photo" referrerPolicy="no-referrer" />
                       ) : (
-                        <div className="avatar">{avatarFallback(u.displayName)}</div>
+                        <div className="avatar">
+                          {avatarFallback(u.displayName || u.email)}
+                        </div>
                       )}
                       <div className="user-info">
-                        <span className="member-name">{u.displayName}</span>
+                        <span className="member-name">{u.displayName || '—'}</span>
                         <span className="user-email">{u.email}</span>
                       </div>
                     </div>
                   </td>
 
-                  {/* Role badge + quick-change */}
+                  {/* Provider */}
                   <td>
-                    <div className="role-cell">
-                      <span className={roleBadgeClass(u.role)}>
-                        <i className={roleIcon(u.role)} aria-hidden="true" />
-                        {u.role}
+                    {u.provider === 'google' ? (
+                      <span className="provider-badge provider-google">
+                        <i className="fa-brands fa-google" aria-hidden="true" /> Google
                       </span>
-                      <div className="role-quick-change">
-                        {ROLE_LEVELS.filter(r => r !== u.role).map(r => (
-                          <button
-                            key={r}
-                            className="role-quick-btn"
-                            title={`Change to ${r}`}
-                            onClick={() => onChangeRole(u.id, r)}
-                          >
-                            {r}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    ) : (
+                      <span className="provider-badge provider-email">
+                        <i className="fa-solid fa-envelope" aria-hidden="true" /> Email
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Role — click to open modal */}
+                  <td>
+                    <button
+                      className={`${roleBadgeClass(u.role)} role-badge-btn`}
+                      onClick={() => onEdit(u)}
+                      title={u.role ? 'Click to change role' : 'Click to assign role'}
+                    >
+                      <i className={roleIcon(u.role)} aria-hidden="true" />
+                      {u.role || 'Unassigned'}
+                      <i className="fa-solid fa-pen role-badge-edit-icon" aria-hidden="true" />
+                    </button>
                   </td>
 
                   {/* Assigned By */}
                   <td>
                     <span className="added-by">
-                      <i className="fa-regular fa-user" style={{ fontSize: 12 }} aria-hidden="true" />
-                      {u.assignedBy}
+                      {u.assignedBy
+                        ? <><i className="fa-regular fa-user" style={{ fontSize: 12 }} aria-hidden="true" />{u.assignedBy}</>
+                        : <span style={{ color: '#d1d5db' }}>—</span>}
                     </span>
                   </td>
 
                   {/* Date */}
-                  <td><span className="date-text">{u.dateAssigned}</span></td>
+                  <td>
+                    <span className="date-text">{u.dateAssigned || '—'}</span>
+                  </td>
 
-                  {/* Actions */}
+                  {/* Actions — remove role lang, visible only if may role */}
                   <td>
                     <div className="actions-cell">
-                      <button className="btn-icon" title="Edit" onClick={() => onEdit(u)}>
-                        <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
-                      </button>
-                      <button
-                        className="btn-icon danger"
-                        title="Revoke role"
-                        onClick={() => onRevoke(u.id)}
-                      >
-                        <i className="fa-solid fa-user-slash" aria-hidden="true" />
-                      </button>
+                      {u.role ? (
+                        <button
+                          className="btn-icon danger"
+                          title="Remove role"
+                          onClick={() => onRemoveRole(u.id)}
+                        >
+                          <i className="fa-solid fa-user-slash" aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <span style={{ color: '#e5e7eb', fontSize: 13 }}>—</span>
+                      )}
                     </div>
                   </td>
+
                 </tr>
               ))
             )}

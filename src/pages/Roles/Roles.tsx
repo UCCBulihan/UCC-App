@@ -10,11 +10,11 @@ import { useRoles } from './useRoles';
 export default function Roles() {
   const {
     currentUser, userRoles, filtered, search, filter,
-    modalOpen, modalMode, form, formError, toast, loading,
+    modalOpen, editingUser, form, formError, toast, loading,
     setSearch, setFilter,
-    openModal, openEditModal, closeModal,
-    handleFormChange, addUserRole, editUserRole,
-    revokeRole, changeRole,
+    openEditModal, closeModal,
+    handleFormChange, saveRole,
+    removeRole,
   } = useRoles();
 
   return (
@@ -23,10 +23,7 @@ export default function Roles() {
       <main className="main-content">
         <div className="page">
 
-          <RolesPageHeader
-            userCount={userRoles.length}
-            onAssignRole={openModal}
-          />
+          <RolesPageHeader userCount={userRoles.length} />
 
           <RolesToolbar
             search={search}
@@ -39,8 +36,7 @@ export default function Roles() {
             userRoles={userRoles}
             filtered={filtered}
             loading={loading}
-            onChangeRole={changeRole}
-            onRevoke={revokeRole}
+            onRemoveRole={removeRole}
             onEdit={openEditModal}
           />
 
@@ -48,13 +44,13 @@ export default function Roles() {
 
         <RoleModal
           isOpen={modalOpen}
-          mode={modalMode}
+          editingUser={editingUser}
           form={form}
           formError={formError}
           currentUser={currentUser}
           onClose={closeModal}
           onFormChange={handleFormChange}
-          onSubmit={modalMode === 'edit' ? editUserRole : addUserRole}
+          onSubmit={saveRole}
         />
 
         <Toast message={toast} />

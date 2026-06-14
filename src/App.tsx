@@ -9,9 +9,10 @@ import Signup from './pages/Auth/SignUp/Signup'
 import PledgesMembers from './pages/Members/Pledgers/PledgesMembers'
 import AllMembers from './pages/Members/AllMembers/AllMembers'
 import Roles from './pages/Roles/Roles'
+import { useAuthSync } from './firebase/useAuthSync';
 
 function App() {
-
+useAuthSync();
   return (
    <>
     <Routes>
