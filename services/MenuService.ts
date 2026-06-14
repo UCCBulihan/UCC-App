@@ -3,14 +3,22 @@ import type { IMenuService, MenuItem } from './interface/IMenuService';
 export class MenuService implements IMenuService {
     private menuItems: MenuItem[] = [
         { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',               path: '/home' },
-        { sortOrder: 6, name: 'Members',  iconClass: 'fa-solid fa-users',               path: '/members' },
+        { sortOrder: 6, name: 'Members', iconClass: 'fa-solid fa-users', path: '',
+            subMenuItems: [
+                { sortOrder: 7, name: 'All Members', iconClass: 'fa-solid fa-list',               path: '/members/all' }, // ✅ was ''
+                { sortOrder: 8, name: 'Pledgers',    iconClass: 'fa-solid fa-hand-holding-heart', path: '/members' }
+            ]
+        },
         { sortOrder: 16, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges', subMenuItems: [
             { sortOrder: 17, name: 'All Pledges', iconClass: 'fa-solid fa-list',            path: '/pledges' },
             { sortOrder: 18, name: 'Report',      iconClass: 'fa-solid fa-chart-bar',       path: '/pledges/report' },
             { sortOrder: 19, name: 'Ledger',      iconClass: 'fa-solid fa-book',            path: '/ledger' }
         ]},
+        { sortOrder: 31, name: 'Sunday School', iconClass: 'fa-solid fa-chalkboard-user', path: '/sunday-school' },
+        // { sortOrder: 41, name: 'Visitation', iconClass: 'fa-solid fa-house', path: '/visitation' },
         { sortOrder: 11, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
         { sortOrder: 21, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },
+        
     ];
 
     getMenuItems(): MenuItem[] {
@@ -34,6 +42,14 @@ export class MenuService implements IMenuService {
     }
 
     settings(sortOrder: number): MenuItem {
+        return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
+    }
+
+    sundaySchool(sortOrder: number): MenuItem {
+        return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
+    }
+
+    visitation(sortOrder: number): MenuItem {
         return this.menuItems.find(item => item.sortOrder === sortOrder) || this.menuItems[0];
     }
 }

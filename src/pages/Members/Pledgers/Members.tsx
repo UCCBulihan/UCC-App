@@ -1,5 +1,5 @@
 import './members.css';
-import NavigationBar from '../Home/NavigationBar/NavigationBar';
+import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from './MembersTable/MembersTable';
 import MemberModal from './MemberModal/MemberModal';
 import PageHeader from './components/PageHeader';

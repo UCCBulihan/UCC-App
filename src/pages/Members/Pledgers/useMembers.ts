@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../../firebase/firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 // ── Types & Helpers ───────────────────────────────────────────
