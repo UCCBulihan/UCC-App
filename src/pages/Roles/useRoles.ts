@@ -118,27 +118,28 @@ export function useRoles() {
   }
 
   // ── Save role assignment ──────────────────────────────────
-  async function saveRole() {
-    if (!editingUser) return;
-    try {
-      const update = {
-        role: form.role,
-        assignedBy: currentUser,
-        dateAssigned: editingUser.role ? editingUser.dateAssigned : formatDate(),
-        modifiedBy: editingUser.role ? currentUser : '',
-        modifiedDate: editingUser.role ? formatDate() : '',
-      };
-      await setDoc(doc(db, 'USERS', editingUser.uid), update, { merge: true });
-      setUserRoles(prev =>
-        prev.map(u => u.id === editingUser.id ? { ...u, ...update } : u)
-      );
-      closeModal();
-      showToast(`Role set to ${form.role} for ${editingUser.displayName || editingUser.email}.`);
-    } catch (err: any) {
-      console.error('Save role error:', err?.message);
-      setFormError('Failed to save role. Try again.');
+    async function saveRole() {
+        if (!editingUser) return;
+        try {
+            const isEdit = !!editingUser.role;
+            const update = {
+            role: form.role,
+            assignedBy: isEdit ? editingUser.assignedBy : currentUser,   // preserve original
+            dateAssigned: isEdit ? editingUser.dateAssigned : formatDate(), // preserve original
+            modifiedBy: isEdit ? currentUser : '',
+            modifiedDate: isEdit ? formatDate() : '',
+            };
+            await setDoc(doc(db, 'USERS', editingUser.uid), update, { merge: true });
+            setUserRoles(prev =>
+            prev.map(u => u.id === editingUser.id ? { ...u, ...update } : u)
+            );
+            closeModal();
+            showToast(`Role set to ${form.role} for ${editingUser.displayName || editingUser.email}.`);
+        } catch (err: any) {
+            console.error('Save role error:', err?.message);
+            setFormError('Failed to save role. Try again.');
+        }
     }
-  }
 
   // ── Remove role (set to empty) ────────────────────────────
   async function removeRole(id: string) {
@@ -191,6 +192,8 @@ export function useRoles() {
     return matchSearch && matchFilter;
   });
 
+  const assignedCount = userRoles.filter(u => !!u.role).length;
+
   return {
     currentUser,
     userRoles,
@@ -211,5 +214,6 @@ export function useRoles() {
     saveRole,
     removeRole,
     changeRole,
+    assignedCount,
   };
 }

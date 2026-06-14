@@ -8,13 +8,14 @@ import Toast from '../Members/Pledgers/components/Toast';
 import { useRoles } from './useRoles';
 
 export default function Roles() {
+    
   const {
     currentUser, userRoles, filtered, search, filter,
     modalOpen, editingUser, form, formError, toast, loading,
     setSearch, setFilter,
     openEditModal, closeModal,
     handleFormChange, saveRole,
-    removeRole,
+    removeRole, assignedCount,
   } = useRoles();
 
   return (
@@ -23,7 +24,10 @@ export default function Roles() {
       <main className="main-content">
         <div className="page">
 
-          <RolesPageHeader userCount={userRoles.length} />
+          <RolesPageHeader 
+            userCount={userRoles.length} 
+            assignedCount={assignedCount} 
+            />
 
           <RolesToolbar
             search={search}

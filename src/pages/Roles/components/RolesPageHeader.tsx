@@ -1,13 +1,14 @@
 interface RolesPageHeaderProps {
-  userCount: number;
+  userCount: number;        
+  assignedCount: number;    
 }
 
-export default function RolesPageHeader({ userCount }: RolesPageHeaderProps) {
+export default function RolesPageHeader({ userCount, assignedCount }: RolesPageHeaderProps) {
   return (
     <div className="page-header">
       <div className="page-header-left">
         <h1>Roles</h1>
-        <p>{userCount} user{userCount !== 1 ? 's' : ''} with assigned roles</p>
+        <p>{assignedCount} user{assignedCount !== 1 ? 's' : ''} with assigned roles</p>
       </div>
     </div>
   );
