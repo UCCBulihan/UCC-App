@@ -5,8 +5,8 @@ export class MenuService implements IMenuService {
         { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',               path: '/home' },
         { sortOrder: 6, name: 'Members', iconClass: 'fa-solid fa-users', path: '',
             subMenuItems: [
-                { sortOrder: 7, name: 'All Members', iconClass: 'fa-solid fa-list',               path: '/members/all' }, // ✅ was ''
-                { sortOrder: 8, name: 'Pledgers',    iconClass: 'fa-solid fa-hand-holding-heart', path: '/members' }
+                { sortOrder: 7, name: 'All Members', iconClass: 'fa-solid fa-list',               path: '/AllMembers' },
+                { sortOrder: 8, name: 'Pledgers',    iconClass: 'fa-solid fa-hand-holding-heart', path: '/PledgesMembers' }
             ]
         },
         { sortOrder: 16, name: 'Pledges',  iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges', subMenuItems: [

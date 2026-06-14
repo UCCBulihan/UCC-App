@@ -1,11 +1,11 @@
-import './members.css';
+import './pledgesmembers.css';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from './MembersTable/MembersTable';
 import MemberModal from './MemberModal/MemberModal';
 import PageHeader from './components/PageHeader';
 import MembersToolbar from './components/MembersToolbar';
 import Toast from './components/Toast';
-import { useMembers } from './useMembers';
+import { useMembers } from './usePledgeMembers';
 
 export default function Members() {
   const {

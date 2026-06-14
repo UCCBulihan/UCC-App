@@ -6,7 +6,8 @@ import Pledges from './pages/Pledges/Pledges'
 import PledgesReport from './pages/Pledges/PledgesReport'
 import Ledger from './pages/Ledger/Ledger'
 import Signup from './pages/Auth/SignUp/Signup'
-import PledgesMembers from './pages/Members/Pledgers/Members';
+import PledgesMembers from './pages/Members/Pledgers/PledgesMembers';
+import AllMembers from './pages/Members/AllMembers/AllMembers'
 
 function App() {
 
@@ -15,7 +16,8 @@ function App() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/home" element={<Home />} />
-      <Route path="/members" element={<PledgesMembers />} />
+      <Route path="/PledgesMembers" element={<PledgesMembers />} />
+      <Route path="/AllMembers" element={<AllMembers />} />
       <Route path="/pledges" element={<Pledges />} />
       <Route path="/pledges/report" element={<PledgesReport />} />
       <Route path="/ledger" element={<Ledger />} />
