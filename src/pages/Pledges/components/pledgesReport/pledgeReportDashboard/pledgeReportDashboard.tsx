@@ -1,5 +1,4 @@
 import type { Member, ReportMatrix } from '../pledgesReportModules/reportTypes/reportTypes';
-import { MONTHS, MONTHS_FULL } from '../pledgesReportModules/reportHelpers/reportHelpers';
 import KpiStrip from '../pledgesReportModules/KpiStrip/KpiStrip';
 import MemberBarChart from '../pledgesReportModules/MemberBarChart/MemberBarChart';
 import MonthFilter from '../pledgesReportModules/MonthFilter/MonthFilter';

@@ -3,7 +3,7 @@ interface RolesPageHeaderProps {
   assignedCount: number;    
 }
 
-export default function RolesPageHeader({ userCount, assignedCount }: RolesPageHeaderProps) {
+export default function RolesPageHeader({ assignedCount }: RolesPageHeaderProps) {
   return (
     <div className="page-header">
       <div className="page-header-left">
