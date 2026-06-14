@@ -26,7 +26,6 @@ export interface RoleFormState {
   role: RoleLevel;
 }
 
-// Role sort order — Admin = 0 (highest), Unassigned = 5 (lowest)
 const ROLE_ORDER: Record<string, number> = {
   Admin:     0,
   Moderator: 1,
@@ -43,6 +42,8 @@ function formatDate() {
 
 export function useRoles() {
   const [currentUser, setCurrentUser] = useState('');
+  const [currentUserUid, setCurrentUserUid] = useState('');
+  const [currentUserRole, setCurrentUserRole] = useState<RoleLevel | ''>('');
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
@@ -58,11 +59,12 @@ export function useRoles() {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, user => {
       setCurrentUser(user?.displayName || user?.email || 'Unknown');
+      setCurrentUserUid(user?.uid || '');
     });
     return () => unsub();
   }, []);
 
-  // ── Real-time listener instead of getDocs ─────────────────
+  // Real-time listener
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'USERS'), (snapshot) => {
       const list: UserRole[] = snapshot.docs.map(docSnap => {
@@ -82,9 +84,7 @@ export function useRoles() {
         };
       });
 
-      // Sort by role hierarchy
       list.sort((a, b) => (ROLE_ORDER[a.role] ?? 4) - (ROLE_ORDER[b.role] ?? 4));
-
       setUserRoles(list);
       setLoading(false);
     }, (err) => {
@@ -95,6 +95,34 @@ export function useRoles() {
     return () => unsub();
   }, []);
 
+  // ── Sync currentUserRole from userRoles ──────────────────
+  useEffect(() => {
+    if (!currentUserUid) return;
+    const me = userRoles.find(u => u.uid === currentUserUid);
+    setCurrentUserRole(me?.role || '');
+  }, [userRoles, currentUserUid]);
+
+  // ── Admin count ──────────────────────────────────────────
+  const adminCount = userRoles.filter(u => u.role === 'Admin').length;
+
+  // ── Last Admin check ─────────────────────────────────────
+  function isLastAdmin(): boolean {
+    return currentUserRole === 'Admin' && adminCount === 1;
+  }
+
+  // ── Permission checks ────────────────────────────────────
+  function canEditUser(target: UserRole): boolean {
+    if (currentUserRole !== 'Admin') return false;
+    if (target.role === 'Admin' && target.uid !== currentUserUid) return false;
+    return true;
+  }
+
+  function canRemoveUser(target: UserRole): boolean {
+    if (currentUserRole !== 'Admin') return false;
+    if (target.role === 'Admin' && target.uid !== currentUserUid) return false;
+    return true;
+  }
+
   function showToast(msg: string) {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -102,6 +130,7 @@ export function useRoles() {
   }
 
   function openEditModal(user: UserRole) {
+    if (!canEditUser(user)) return;
     setForm({ role: (user.role as RoleLevel) || 'Member' });
     setFormError('');
     setEditingUser(user);
@@ -122,6 +151,20 @@ export function useRoles() {
 
   async function saveRole() {
     if (!editingUser) return;
+    if (!canEditUser(editingUser)) {
+      setFormError('You do not have permission to edit this user.');
+      return;
+    }
+
+    // ── Last Admin protection ────────────────────────────
+    const isSelf = editingUser.uid === currentUserUid;
+    if (isSelf && isLastAdmin() && form.role !== 'Admin') {
+      setFormError(
+        'You are the only Admin. Transfer admin rights to another user first before changing your role.'
+      );
+      return;
+    }
+
     try {
       const isEdit = !!editingUser.role;
       const update = {
@@ -141,6 +184,19 @@ export function useRoles() {
   }
 
   async function removeRole(id: string) {
+    const target = userRoles.find(u => u.id === id);
+    if (!target || !canRemoveUser(target)) {
+      showToast('You do not have permission to remove this role.');
+      return;
+    }
+
+    // ── Last Admin protection ────────────────────────────
+    const isSelf = target.uid === currentUserUid;
+    if (isSelf && isLastAdmin()) {
+      showToast('You are the only Admin. Transfer admin rights to another user first before removing your role.');
+      return;
+    }
+
     try {
       await updateDoc(doc(db, 'USERS', id), {
         role:         '',
@@ -157,6 +213,18 @@ export function useRoles() {
 
   async function changeRole(id: string, newRole: RoleLevel) {
     const target = userRoles.find(u => u.id === id);
+    if (!target || !canEditUser(target)) {
+      showToast('You do not have permission to change this role.');
+      return;
+    }
+
+    // ── Last Admin protection ────────────────────────────
+    const isSelf = target.uid === currentUserUid;
+    if (isSelf && isLastAdmin() && newRole !== 'Admin') {
+      showToast('You are the only Admin. Transfer admin rights to another user first before changing your role.');
+      return;
+    }
+
     try {
       const update = {
         role:         newRole,
@@ -186,6 +254,8 @@ export function useRoles() {
 
   return {
     currentUser,
+    currentUserUid,
+    currentUserRole,
     userRoles,
     filtered,
     search,
@@ -205,5 +275,8 @@ export function useRoles() {
     saveRole,
     removeRole,
     changeRole,
+    canEditUser,
+    canRemoveUser,
+    isLastAdmin,
   };
 }

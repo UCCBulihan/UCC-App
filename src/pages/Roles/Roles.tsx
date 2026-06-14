@@ -10,13 +10,16 @@ import { useRoles } from './useRoles';
 export default function Roles() {
     
   const {
-    currentUser, userRoles, filtered, search, filter,
-    modalOpen, editingUser, form, formError, toast, loading,
-    setSearch, setFilter,
-    openEditModal, closeModal,
-    handleFormChange, saveRole,
-    removeRole, assignedCount,
-  } = useRoles();
+  currentUser, userRoles, filtered, search, filter,
+  modalOpen, editingUser, form, formError, toast, loading,
+  assignedCount,
+  setSearch, setFilter,
+  openEditModal, closeModal,
+  handleFormChange, saveRole,
+  removeRole,
+  canEditUser,      
+  canRemoveUser,    
+} = useRoles();
 
   return (
     <div className="app-layout">
@@ -36,13 +39,15 @@ export default function Roles() {
             onFilterChange={setFilter}
           />
 
-          <RolesTable
-            userRoles={userRoles}
-            filtered={filtered}
-            loading={loading}
-            onRemoveRole={removeRole}
-            onEdit={openEditModal}
-          />
+         <RolesTable
+          userRoles={userRoles}
+          filtered={filtered}
+          loading={loading}
+          onRemoveRole={removeRole}
+          onEdit={openEditModal}
+          canEditUser={canEditUser}
+          canRemoveUser={canRemoveUser}
+        />
 
         </div>
 

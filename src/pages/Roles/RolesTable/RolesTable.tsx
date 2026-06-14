@@ -6,6 +6,8 @@ interface Props {
   loading: boolean;
   onRemoveRole: (id: string) => void;
   onEdit: (userRole: UserRole) => void;
+  canEditUser: (user: UserRole) => boolean;
+  canRemoveUser: (user: UserRole) => boolean;
 }
 
 function roleBadgeClass(role: string) {
@@ -36,7 +38,7 @@ function avatarFallback(name: string) {
 }
 
 export default function RolesTable({
-  userRoles, filtered, loading, onRemoveRole, onEdit,
+  userRoles, filtered, loading, onRemoveRole, onEdit, canEditUser, canRemoveUser,
 }: Props) {
   return (
     <div className="members-card">
@@ -103,17 +105,24 @@ export default function RolesTable({
                     )}
                   </td>
 
-                  {/* Role — click to open modal */}
+                  {/* Role */}
                   <td>
-                    <button
-                      className={`${roleBadgeClass(u.role)} role-badge-btn`}
-                      onClick={() => onEdit(u)}
-                      title={u.role ? 'Click to change role' : 'Click to assign role'}
-                    >
-                      <i className={roleIcon(u.role)} aria-hidden="true" />
-                      {u.role || 'Unassigned'}
-                      <i className="fa-solid fa-pen role-badge-edit-icon" aria-hidden="true" />
-                    </button>
+                    {canEditUser(u) ? (
+                      <button
+                        className={`${roleBadgeClass(u.role)} role-badge-btn`}
+                        onClick={() => onEdit(u)}
+                        title={u.role ? 'Click to change role' : 'Click to assign role'}
+                      >
+                        <i className={roleIcon(u.role)} aria-hidden="true" />
+                        {u.role || 'Unassigned'}
+                        <i className="fa-solid fa-pen role-badge-edit-icon" aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <span className={roleBadgeClass(u.role)}>
+                        <i className={roleIcon(u.role)} aria-hidden="true" />
+                        {u.role || 'Unassigned'}
+                      </span>
+                    )}
                   </td>
 
                   {/* Assigned By */}
@@ -130,10 +139,10 @@ export default function RolesTable({
                     <span className="date-text">{u.dateAssigned || '—'}</span>
                   </td>
 
-                  {/* Actions — remove role lang, visible only if may role */}
+                  {/* Actions */}
                   <td>
                     <div className="actions-cell">
-                      {u.role ? (
+                      {canRemoveUser(u) && u.role ? (
                         <button
                           className="btn-icon danger"
                           title="Remove role"
