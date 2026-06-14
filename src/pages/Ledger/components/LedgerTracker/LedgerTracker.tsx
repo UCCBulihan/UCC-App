@@ -5,9 +5,8 @@ import {
   doc, Timestamp, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../../../../firebase/firebase';
+import { useCurrentUserRole } from '../../../Pledges/hooks/useCurrentUserRole';
 import './LedgerTracker.css';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type EntryType = 'EXPENSE' | 'LOAN_OUT' | 'REPAYMENT';
 
@@ -45,9 +44,9 @@ const MONTHS = [
 ];
 
 const TYPE_CONFIG: Record<EntryType, { label: string; color: string; bg: string; sign: string }> = {
-  EXPENSE:   { label: 'Expense',    color: '#dc2626', bg: '#fef2f2', sign: '−' },
-  LOAN_OUT:  { label: 'Loan Out',   color: '#d97706', bg: '#fffbeb', sign: '−' },
-  REPAYMENT: { label: 'Repayment',  color: '#16a34a', bg: '#f0fdf4', sign: '+' },
+  EXPENSE:   { label: 'Expense',   color: '#dc2626', bg: '#fef2f2', sign: '−' },
+  LOAN_OUT:  { label: 'Loan Out',  color: '#d97706', bg: '#fffbeb', sign: '−' },
+  REPAYMENT: { label: 'Repayment', color: '#16a34a', bg: '#f0fdf4', sign: '+' },
 };
 
 function fmt(n: number) {
@@ -57,23 +56,20 @@ function fmt(n: number) {
   });
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function LedgerTracker() {
   const now = new Date();
   const [curMonth, setCurMonth] = useState(now.getMonth());
   const [curYear, setCurYear] = useState(now.getFullYear());
-
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EntryForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  const { canManage } = useCurrentUserRole();
   const years = Array.from({ length: 7 }, (_, i) => now.getFullYear() - 3 + i);
 
   useEffect(() => {
@@ -91,14 +87,12 @@ export default function LedgerTracker() {
     try {
       const start = new Date(curYear, curMonth, 1);
       const end = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
-
       const q = query(
         collection(db, 'LEDGER'),
         where('dateAdded', '>=', Timestamp.fromDate(start)),
         where('dateAdded', '<=', Timestamp.fromDate(end)),
         orderBy('dateAdded', 'asc')
       );
-
       const snap = await getDocs(q);
       const list: LedgerEntry[] = [];
       snap.forEach(d => {
@@ -115,7 +109,6 @@ export default function LedgerTracker() {
           modifiedBy: data.modifiedBy ?? '',
         });
       });
-
       setEntries(list);
     } catch (err: any) {
       console.error('fetchEntries error:', err?.message);
@@ -128,7 +121,6 @@ export default function LedgerTracker() {
     if (!form.amount || !form.description.trim()) return;
     if (!currentUser) return;
     setSaving(true);
-
     try {
       const dateAdded = new Date(form.dateAdded + 'T00:00:00');
       const payload = {
@@ -141,13 +133,11 @@ export default function LedgerTracker() {
         modifiedBy: currentUser.displayName ?? currentUser.email ?? '',
         userId: 0,
       };
-
       if (editingId) {
         await updateDoc(doc(db, 'LEDGER', editingId), payload);
       } else {
         await addDoc(collection(db, 'LEDGER'), payload);
       }
-
       setForm(EMPTY_FORM);
       setEditingId(null);
       setShowForm(false);
@@ -187,14 +177,10 @@ export default function LedgerTracker() {
     setShowForm(false);
   }
 
-  // ── Derived totals ────────────────────────────────────────────────────────
-
   const totalExpenses  = entries.filter(e => e.type === 'EXPENSE').reduce((s, e) => s + e.amount, 0);
   const totalLoanOut   = entries.filter(e => e.type === 'LOAN_OUT').reduce((s, e) => s + e.amount, 0);
   const totalRepayment = entries.filter(e => e.type === 'REPAYMENT').reduce((s, e) => s + e.amount, 0);
   const netOutflow     = totalExpenses + totalLoanOut - totalRepayment;
-
-  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="ldg-root">
@@ -212,10 +198,12 @@ export default function LedgerTracker() {
           <select className="ldg-select" value={curYear} onChange={e => setCurYear(Number(e.target.value))}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button className="ldg-add-btn" onClick={() => { setShowForm(true); setEditingId(null); setForm(EMPTY_FORM); }}>
-            <i className="fa-solid fa-plus" aria-hidden="true" />
-            Add Entry
-          </button>
+          {canManage && (
+            <button className="ldg-add-btn" onClick={() => { setShowForm(true); setEditingId(null); setForm(EMPTY_FORM); }}>
+              <i className="fa-solid fa-plus" aria-hidden="true" />
+              Add Entry
+            </button>
+          )}
         </div>
       </div>
 
@@ -245,13 +233,11 @@ export default function LedgerTracker() {
         </div>
       </div>
 
-      {/* Add / Edit Form */}
-      {showForm && (
+      {/* Add / Edit Form — Admin at Moderator lang */}
+      {canManage && showForm && (
         <div className="ldg-form-card">
           <h2 className="ldg-form-title">{editingId ? 'Edit Entry' : 'New Entry'}</h2>
           <div className="ldg-form-grid">
-
-            {/* Type selector */}
             <div className="ldg-field ldg-field--full">
               <label>Type</label>
               <div className="ldg-type-group">
@@ -268,7 +254,6 @@ export default function LedgerTracker() {
                 ))}
               </div>
             </div>
-
             <div className="ldg-field">
               <label>Date</label>
               <input
@@ -331,75 +316,83 @@ export default function LedgerTracker() {
           <div className="ldg-empty">
             <i className="fa-regular fa-folder-open ldg-empty-icon" aria-hidden="true" />
             <p>No entries for {MONTHS[curMonth]} {curYear}.</p>
-            <button className="ldg-add-btn" onClick={() => setShowForm(true)}>+ Add Entry</button>
+            {canManage && (
+              <button className="ldg-add-btn" onClick={() => setShowForm(true)}>
+                + Add Entry
+              </button>
+            )}
           </div>
         ) : (
           <div className="ldg-table-scroll">
-          <table className="ldg-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Modified By</th>
-                <th className="ldg-th-amount">Amount</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map(e => {
-                const cfg = TYPE_CONFIG[e.type];
-                return (
-                  <tr key={e.id}>
-                    <td className="ldg-td-date">
-                      {e.dateAdded.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
-                    <td>
-                      <span className="ldg-type-pill" style={{ color: cfg.color, background: cfg.bg }}>
-                        {cfg.sign} {cfg.label}
-                      </span>
-                    </td>
-                    <td>
-                      {e.category
-                        ? <span className="ldg-category-pill">{e.category}</span>
-                        : <span className="ldg-dash">—</span>
-                      }
-                    </td>
-                    <td className="ldg-td-desc">{e.description}</td>
-                    <td className="ldg-td-by">{e.modifiedBy || <span className="ldg-dash">—</span>}</td>
-                    <td className="ldg-td-amount" style={{ color: cfg.color }}>
-                      {cfg.sign} {fmt(e.amount)}
-                    </td>
-                    <td className="ldg-td-actions">
-                      <button className="ldg-icon-btn" onClick={() => handleEdit(e)} title="Edit">
-                        <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
-                      </button>
-                      {deleteConfirm === e.id ? (
-                        <span className="ldg-delete-confirm">
-                          <button className="ldg-icon-btn ldg-confirm-yes" onClick={() => handleDelete(e.id)}>Delete</button>
-                          <button className="ldg-icon-btn ldg-confirm-no" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+            <table className="ldg-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Modified By</th>
+                  <th className="ldg-th-amount">Amount</th>
+                  {canManage && <th></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(e => {
+                  const cfg = TYPE_CONFIG[e.type];
+                  return (
+                    <tr key={e.id}>
+                      <td className="ldg-td-date">
+                        {e.dateAdded.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td>
+                        <span className="ldg-type-pill" style={{ color: cfg.color, background: cfg.bg }}>
+                          {cfg.sign} {cfg.label}
                         </span>
-                      ) : (
-                        <button className="ldg-icon-btn" onClick={() => setDeleteConfirm(e.id)} title="Delete">
-                          <i className="fa-regular fa-trash-can" aria-hidden="true" />
-                        </button>
+                      </td>
+                      <td>
+                        {e.category
+                          ? <span className="ldg-category-pill">{e.category}</span>
+                          : <span className="ldg-dash">—</span>
+                        }
+                      </td>
+                      <td className="ldg-td-desc">{e.description}</td>
+                      <td className="ldg-td-by">{e.modifiedBy || <span className="ldg-dash">—</span>}</td>
+                      <td className="ldg-td-amount" style={{ color: cfg.color }}>
+                        {cfg.sign} {fmt(e.amount)}
+                      </td>
+                      {canManage && (
+                        <td className="ldg-td-actions">
+                          <button className="ldg-icon-btn" onClick={() => handleEdit(e)} title="Edit">
+                            <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
+                          </button>
+                          {deleteConfirm === e.id ? (
+                            <span className="ldg-delete-confirm">
+                              <button className="ldg-icon-btn ldg-confirm-yes" onClick={() => handleDelete(e.id)}>Delete</button>
+                              <button className="ldg-icon-btn ldg-confirm-no" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                            </span>
+                          ) : (
+                            <button className="ldg-icon-btn" onClick={() => setDeleteConfirm(e.id)} title="Delete">
+                              <i className="fa-regular fa-trash-can" aria-hidden="true" />
+                            </button>
+                          )}
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={5} className="ldg-tfoot-label">Net Outflow — {MONTHS[curMonth]} {curYear}</td>
-                <td className="ldg-tfoot-amount" style={{ color: netOutflow > 0 ? '#dc2626' : '#16a34a' }}>
-                  {fmt(netOutflow)}
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={canManage ? 5 : 5} className="ldg-tfoot-label">
+                    Net Outflow — {MONTHS[curMonth]} {curYear}
+                  </td>
+                  <td className="ldg-tfoot-amount" style={{ color: netOutflow > 0 ? '#dc2626' : '#16a34a' }}>
+                    {fmt(netOutflow)}
+                  </td>
+                  {canManage && <td></td>}
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </div>

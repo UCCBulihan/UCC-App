@@ -4,10 +4,12 @@ import PledgeHeader from './PledgeModule/pledgeHeader/PledgeHeader';
 import PledgeFilters from './PledgeModule/pledgeFilters/PledgeFilters';
 import PledgeTable from './PledgeModule/pledgesTable/PledgeTable';
 import PledgeSummary from './PledgeModule/pledgeSummary/PledgeSummary';
+import { useCurrentUserRole } from '../../../Pledges/hooks/useCurrentUserRole';
 
 export default function PledgeTracker() {
   const [selectedUser, setSelectedUser] = useState(0);
   const [selectedUserName, setSelectedUserName] = useState('');
+  const { canManage } = useCurrentUserRole();
 
   const {
     curMonth, setCurMonth,
@@ -16,12 +18,12 @@ export default function PledgeTracker() {
     total, paidCount,
     years, handleAmount,
     handleNote, exportCSV,
-    currentUser, 
+    currentUser,
   } = usePledges(selectedUser, selectedUserName);
 
   return (
     <>
-      <PledgeHeader currentUser={currentUser} /> 
+      <PledgeHeader currentUser={currentUser} />
       <PledgeFilters
         selectedUser={selectedUser}
         setSelectedUser={setSelectedUser}
@@ -31,7 +33,7 @@ export default function PledgeTracker() {
         setCurYear={setCurYear}
         years={years}
         exportCSV={exportCSV}
-        setSelectedUserName={setSelectedUserName} 
+        setSelectedUserName={setSelectedUserName}
       />
       <PledgeTable
         sundays={sundays}
@@ -39,6 +41,7 @@ export default function PledgeTracker() {
         handleAmount={handleAmount}
         handleNote={handleNote}
         selectedUser={selectedUser}
+        canManage={canManage}
       />
       <PledgeSummary
         sundayCount={sundays.length}
