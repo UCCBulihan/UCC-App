@@ -25,7 +25,6 @@ interface MemberMonthData {
   totalSundays: number;
 }
 
-// userId → month (0-11) → data
 type ReportMatrix = Record<number, Record<number, MemberMonthData>>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -242,8 +241,8 @@ export default function PledgesReport() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app-layout">
-      <NavigationBar />
+     <div className="app-layout">
+          <NavigationBar />
       <main className="main-content report-root">
 
         {/* ── Header ── */}
