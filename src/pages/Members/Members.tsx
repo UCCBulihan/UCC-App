@@ -2,6 +2,9 @@ import './members.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import MembersTable from './MembersTable/MembersTable';
 import MemberModal from './MemberModal/MemberModal';
+import PageHeader from './components/PageHeader';
+import MembersToolbar from './components/MembersToolbar';
+import Toast from './components/Toast';
 import { useMembers } from './useMembers';
 
 export default function Members() {
@@ -20,40 +23,18 @@ export default function Members() {
       <main className="main-content">
         <div className="page">
 
-          {/* Page Header */}
-          <div className="page-header">
-            <div className="page-header-left">
-              <h1>Members</h1>
-              <p>{members.length} member{members.length !== 1 ? 's' : ''} total</p>
-            </div>
-            <button className="btn-add" onClick={openModal}>
-              <i className="fa-solid fa-user-plus" aria-hidden="true" />
-              Add Member
-            </button>
-          </div>
+          <PageHeader
+            memberCount={members.length}
+            onAddMember={openModal}
+          />
 
-          {/* Toolbar */}
-          <div className="toolbar">
-            <div className="search-wrap">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
-              <input
-                type="text"
-                placeholder="Search by name…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="filter-select-wrap">
-              <i className="fa-solid fa-filter" aria-hidden="true" />
-              <select value={filter} onChange={e => setFilter(e.target.value)}>
-                <option value="all">All Members</option>
-                <option value="yes">Pledgers Only</option>
-                <option value="no">Non-Pledgers</option>
-              </select>
-            </div>
-          </div>
+          <MembersToolbar
+            search={search}
+            filter={filter}
+            onSearchChange={setSearch}
+            onFilterChange={setFilter}
+          />
 
-          {/* Table */}
           <MembersTable
             members={members}
             filtered={filtered}
@@ -65,7 +46,6 @@ export default function Members() {
 
         </div>
 
-        {/* Modal */}
         <MemberModal
           isOpen={modalOpen}
           mode={modalMode}
@@ -77,11 +57,7 @@ export default function Members() {
           onSubmit={modalMode === 'edit' ? editMember : addMember}
         />
 
-        {/* Toast */}
-        <div className={`toast${toast ? ' show' : ''}`}>
-          <i className="fa-solid fa-circle-check" aria-hidden="true" />
-          <span>{toast}</span>
-        </div>
+        <Toast message={toast} />
 
       </main>
     </div>

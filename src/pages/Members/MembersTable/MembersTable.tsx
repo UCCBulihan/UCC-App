@@ -1,4 +1,3 @@
-// members/types.ts
 export interface Member {
   id: string;
   firstName: string;
