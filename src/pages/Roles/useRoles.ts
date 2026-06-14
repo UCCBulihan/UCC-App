@@ -1,20 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, doc, updateDoc, setDoc,
+  collection, onSnapshot, doc, updateDoc, setDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-// ── Types ─────────────────────────────────────────────────────
 export type RoleLevel = 'Admin' | 'Moderator' | 'Member' | 'Viewer';
 
 export interface UserRole {
-  id: string;       // Firestore doc ID = uid
+  id: string;
   uid: string;
   displayName: string;
   email: string;
   photoURL: string;
-  role: RoleLevel | '';   // '' = walang role pa (bagong user)
+  role: RoleLevel | '';
   assignedBy?: string;
   dateAssigned?: string;
   modifiedBy?: string;
@@ -27,13 +26,21 @@ export interface RoleFormState {
   role: RoleLevel;
 }
 
+// Role sort order — Admin = 0 (highest), Unassigned = 5 (lowest)
+const ROLE_ORDER: Record<string, number> = {
+  Admin:     0,
+  Moderator: 1,
+  Member:    2,
+  Viewer:    3,
+  '':        4,
+};
+
 function formatDate() {
   return new Date().toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
-// ── Hook ─────────────────────────────────────────────────────
 export function useRoles() {
   const [currentUser, setCurrentUser] = useState('');
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -47,7 +54,6 @@ export function useRoles() {
   const [loading, setLoading] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Track who is currently logged in ─────────────────────
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, user => {
@@ -56,37 +62,37 @@ export function useRoles() {
     return () => unsub();
   }, []);
 
-  // ── Fetch all users from USERS collection ─────────────────
-  // (USERS collection is auto-populated when anyone logs in via Google,
-  //  because useAuthSync writes to it on every login)
+  // ── Real-time listener instead of getDocs ─────────────────
   useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const snapshot = await getDocs(collection(db, 'USERS'));
-        const list: UserRole[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data() as any;
-          return {
-            id: docSnap.id,
-            uid: data.uid || docSnap.id,
-            displayName: data.displayName || '',
-            email: data.email || '',
-            photoURL: data.photoURL || '',
-            provider: data.provider || '',
-            role: data.role || '',
-            assignedBy: data.assignedBy || '',
-            dateAssigned: data.dateAssigned || '',
-            modifiedBy: data.modifiedBy || '',
-            modifiedDate: data.modifiedDate || '',
-          };
-        });
-        setUserRoles(list);
-      } catch (err: any) {
-        console.error('Fetch error:', err?.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchUsers();
+    const unsub = onSnapshot(collection(db, 'USERS'), (snapshot) => {
+      const list: UserRole[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data() as any;
+        return {
+          id:           docSnap.id,
+          uid:          data.uid || docSnap.id,
+          displayName:  data.displayName || '',
+          email:        data.email || '',
+          photoURL:     data.photoURL || '',
+          provider:     data.provider || '',
+          role:         data.role || '',
+          assignedBy:   data.assignedBy || '',
+          dateAssigned: data.dateAssigned || '',
+          modifiedBy:   data.modifiedBy || '',
+          modifiedDate: data.modifiedDate || '',
+        };
+      });
+
+      // Sort by role hierarchy
+      list.sort((a, b) => (ROLE_ORDER[a.role] ?? 4) - (ROLE_ORDER[b.role] ?? 4));
+
+      setUserRoles(list);
+      setLoading(false);
+    }, (err) => {
+      console.error('Snapshot error:', err?.message);
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, []);
 
   function showToast(msg: string) {
@@ -95,7 +101,6 @@ export function useRoles() {
     toastTimer.current = setTimeout(() => setToast(''), 2800);
   }
 
-  // ── Open modal to assign/edit role for a specific user ───
   function openEditModal(user: UserRole) {
     setForm({ role: (user.role as RoleLevel) || 'Member' });
     setFormError('');
@@ -110,78 +115,65 @@ export function useRoles() {
     document.body.style.overflow = '';
   }
 
-  function handleFormChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
+  function handleFormChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { id, value } = e.target;
     setForm(prev => ({ ...prev, [id]: value }));
   }
 
-  // ── Save role assignment ──────────────────────────────────
-    async function saveRole() {
-        if (!editingUser) return;
-        try {
-            const isEdit = !!editingUser.role;
-            const update = {
-            role: form.role,
-            assignedBy: isEdit ? editingUser.assignedBy : currentUser,   // preserve original
-            dateAssigned: isEdit ? editingUser.dateAssigned : formatDate(), // preserve original
-            modifiedBy: isEdit ? currentUser : '',
-            modifiedDate: isEdit ? formatDate() : '',
-            };
-            await setDoc(doc(db, 'USERS', editingUser.uid), update, { merge: true });
-            setUserRoles(prev =>
-            prev.map(u => u.id === editingUser.id ? { ...u, ...update } : u)
-            );
-            closeModal();
-            showToast(`Role set to ${form.role} for ${editingUser.displayName || editingUser.email}.`);
-        } catch (err: any) {
-            console.error('Save role error:', err?.message);
-            setFormError('Failed to save role. Try again.');
-        }
+  async function saveRole() {
+    if (!editingUser) return;
+    try {
+      const isEdit = !!editingUser.role;
+      const update = {
+        role:         form.role,
+        assignedBy:   isEdit ? editingUser.assignedBy : currentUser,
+        dateAssigned: isEdit ? editingUser.dateAssigned : formatDate(),
+        modifiedBy:   isEdit ? currentUser : '',
+        modifiedDate: isEdit ? formatDate() : '',
+      };
+      await setDoc(doc(db, 'USERS', editingUser.uid), update, { merge: true });
+      closeModal();
+      showToast(`Role set to ${form.role} for ${editingUser.displayName || editingUser.email}.`);
+    } catch (err: any) {
+      console.error('Save role error:', err?.message);
+      setFormError('Failed to save role. Try again.');
     }
+  }
 
-  // ── Remove role (set to empty) ────────────────────────────
   async function removeRole(id: string) {
     try {
       await updateDoc(doc(db, 'USERS', id), {
-        role: '',
-        assignedBy: '',
+        role:         '',
+        assignedBy:   '',
         dateAssigned: '',
-        modifiedBy: currentUser,
+        modifiedBy:   currentUser,
         modifiedDate: formatDate(),
       });
-      setUserRoles(prev =>
-        prev.map(u => u.id === id ? { ...u, role: '', assignedBy: '', dateAssigned: '' } : u)
-      );
       showToast('Role removed.');
     } catch (err: any) {
       console.error('Remove role error:', err?.message);
     }
   }
 
-  // ── Quick role change directly from table ─────────────────
   async function changeRole(id: string, newRole: RoleLevel) {
     const target = userRoles.find(u => u.id === id);
     try {
       const update = {
-        role: newRole,
-        assignedBy: target?.assignedBy || currentUser,
+        role:         newRole,
+        assignedBy:   target?.assignedBy || currentUser,
         dateAssigned: target?.dateAssigned || formatDate(),
-        modifiedBy: currentUser,
+        modifiedBy:   currentUser,
         modifiedDate: formatDate(),
       };
       await updateDoc(doc(db, 'USERS', id), update);
-      setUserRoles(prev =>
-        prev.map(u => u.id === id ? { ...u, ...update } : u)
-      );
       showToast(`Role changed to ${newRole}.`);
     } catch (err: any) {
       console.error('Role change error:', err?.message);
     }
   }
 
-  // ── Filter logic ──────────────────────────────────────────
+  const assignedCount = userRoles.filter(u => !!u.role).length;
+
   const filtered = userRoles.filter(u => {
     const searchStr = `${u.displayName} ${u.email}`.toLowerCase();
     const matchSearch = searchStr.includes(search.toLowerCase());
@@ -191,8 +183,6 @@ export function useRoles() {
       || u.role.toLowerCase() === filter.toLowerCase();
     return matchSearch && matchFilter;
   });
-
-  const assignedCount = userRoles.filter(u => !!u.role).length;
 
   return {
     currentUser,
@@ -206,6 +196,7 @@ export function useRoles() {
     formError,
     toast,
     loading,
+    assignedCount,
     setSearch,
     setFilter,
     openEditModal,
@@ -214,6 +205,5 @@ export function useRoles() {
     saveRole,
     removeRole,
     changeRole,
-    assignedCount,
   };
 }

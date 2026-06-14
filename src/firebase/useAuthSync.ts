@@ -9,7 +9,6 @@ export function useAuthSync() {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
 
-      // Alamin kung paano nag-login: Google o email/password
       const provider = user.providerData[0]?.providerId === 'google.com'
         ? 'google'
         : 'password';
@@ -21,7 +20,7 @@ export function useAuthSync() {
           displayName: user.displayName || user.email?.split('@')[0] || '',
           email:       user.email || '',
           photoURL:    user.photoURL || '',
-          provider,                    // "google" or "facebook"
+          provider,                 
           lastLogin:   serverTimestamp(),
         },
         { merge: true }
