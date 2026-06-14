@@ -8,5 +8,11 @@
   flex: 1;
   overflow-y: auto;
   background: #f0f0f0;
-  padding: 1.5rem;
+  padding: 1rem;
+}
+
+@media (max-width: 767px) {
+  .main-content {
+    padding-top: 4rem; 
+  }
 }
