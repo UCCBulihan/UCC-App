@@ -18,8 +18,9 @@ export class MenuService implements IMenuService {
             { sortOrder: 33, name: 'Ledger',      iconClass: 'fa-solid fa-book',            path: '/ledger' }
         ]},
 
-        { sortOrder: 40, name: 'Sunday School', iconClass: 'fa-solid fa-chalkboard-user', path: '/sunday-school' },
-        // { sortOrder: 41, name: 'Visitation', iconClass: 'fa-solid fa-house', path: '/visitation' },
+        
+        { sortOrder: 40, name: 'Visitation', iconClass: 'fa-solid fa-house', path: '/visitation' },
+        { sortOrder: 41, name: 'Sunday School', iconClass: 'fa-solid fa-chalkboard-user', path: '/sunday-school' },
         { sortOrder: 42, name: 'Profile',  iconClass: 'fa-solid fa-user',               path: '/profile' },
         { sortOrder: 43, name: 'Settings', iconClass: 'fa-solid fa-gear',               path: '/settings' },
         
