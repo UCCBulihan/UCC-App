@@ -64,7 +64,7 @@ export default function PledgeTable({
                 </td>
                 <td>
                   <span className={`status ${paid ? 'paid' : 'unpaid'}`}>
-                    {paid ? 'Paid' : 'Unpaid'}
+                    {paid ? 'Collected' : 'Uncollected'}
                   </span>
                 </td>
                 <td>

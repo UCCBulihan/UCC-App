@@ -5,6 +5,7 @@ import PledgeFilters from './PledgeModule/pledgeFilters/PledgeFilters';
 import PledgeTable from './PledgeModule/pledgesTable/PledgeTable';
 import PledgeSummary from './PledgeModule/pledgeSummary/PledgeSummary';
 import { useCurrentUserRole } from '../../../Pledges/hooks/useCurrentUserRole';
+import { fmt, MONTHS } from './PledgeModule/pledgesTable/PledgesUtils';
 
 export default function PledgeTracker() {
   const [selectedUser, setSelectedUser] = useState(0);
@@ -21,9 +22,44 @@ export default function PledgeTracker() {
     currentUser,
   } = usePledges(selectedUser, selectedUserName);
 
+  const sundayCount = sundays.length;
+  const collectionRate = sundayCount > 0 ? Math.round((paidCount / sundayCount) * 100) : 0;
+
   return (
     <>
-      <PledgeHeader currentUser={currentUser} />
+      <PledgeHeader
+        currentUser={currentUser}
+      />
+
+      {/* Stats cards */}
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-label">Sundays this month</div>
+          <div className="stat-value">{sundayCount}</div>
+          <div className="stat-sub">{MONTHS[curMonth]} {curYear}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Paid</div>
+          <div className={`stat-value ${paidCount > 0 ? 'green' : ''}`}>{paidCount}</div>
+          <div className="stat-sub">of {sundayCount} Sundays</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Total Collected</div>
+          <div className="stat-value">{fmt(total)}</div>
+          <div className="stat-sub">This month</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Collection rate</div>
+          <div className="stat-value">{collectionRate}%</div>
+          <div className="progress-wrap">
+            <div className="progress-bar-bg">
+              <div className="progress-bar-fill" style={{ width: `${collectionRate}%` }} />
+            </div>
+            <div className="progress-label">{paidCount} of {sundayCount} Sundays Collected</div>
+          </div>
+        </div>
+      </div>
+
       <PledgeFilters
         selectedUser={selectedUser}
         setSelectedUser={setSelectedUser}
@@ -33,8 +69,10 @@ export default function PledgeTracker() {
         setCurYear={setCurYear}
         years={years}
         exportCSV={exportCSV}
+         canManage={canManage}   
         setSelectedUserName={setSelectedUserName}
       />
+
       <PledgeTable
         sundays={sundays}
         data={data}
@@ -43,8 +81,9 @@ export default function PledgeTracker() {
         selectedUser={selectedUser}
         canManage={canManage}
       />
+
       <PledgeSummary
-        sundayCount={sundays.length}
+        sundayCount={sundayCount}
         paidCount={paidCount}
         total={total}
       />

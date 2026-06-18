@@ -1,4 +1,7 @@
-/* RESET */
+/* ════════════════════════════════════
+   Pledges — Base Styles
+═══════════════════════════════════════ */
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -6,73 +9,192 @@
 }
 
 :root {
-  --bg: #f2f2f0;
+  --bg: #f5f5f3;
   --white: #ffffff;
-  --text: #111;
-  --muted: #888;
-  --border: #e0e0dc;
-  --green: #16a34a;
-  --green-bg: #f0fdf4;
-  --red: #dc2626;
-  --red-bg: #fef2f2;
-  --radius: 12px;
+  --text: #1a1a1a;
+  --muted: #6b7280;
+  --muted-light: #9ca3af;
+  --border: #e5e5e3;
+  --border-hover: #d0d0ce;
+  --surface: #f9f9f8;
+
+  --purple: #534AB7;
+  --purple-dark: #3C3489;
+  --purple-bg: #EEEDFE;
+  --purple-text: #3C3489;
+
+  --green: #3B6D11;
+  --green-bg: #EAF3DE;
+  --green-dot: #639922;
+
+  --red: #A32D2D;
+  --red-bg: #FCEBEB;
+  --red-dot: #E24B4A;
+
+  --amber: #854F0B;
+  --amber-bg: #FAEEDA;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
-/* CONTAINER */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
+/* ── Page wrapper ── */
+.page-wrapper {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text);
 }
 
-/* HEADER */
+/* ── Header ── */
 .header {
   margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 0.5px solid var(--border);
 }
 
 .header h1 {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
 }
 
 .header p {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-/* FILTERS */
+.header p strong {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: var(--white);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.stat-card .stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-value {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.stat-card .stat-value.green { color: var(--green); }
+.stat-card .stat-value.red   { color: var(--red); }
+
+.stat-card .stat-sub {
+  font-size: 11px;
+  color: var(--muted-light);
+  margin-top: 2px;
+}
+
+/* Progress bar inside stat card */
+.progress-wrap { margin-top: 8px; }
+
+.progress-bar-bg {
+  height: 4px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--purple);
+  transition: width 0.3s ease;
+}
+
+.progress-label {
+  font-size: 10px;
+  color: var(--muted-light);
+  margin-top: 3px;
+}
+
+/* ── Filters ── */
 .filters {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  align-items: center;
 }
 
 .filters select {
   flex: 1;
   min-width: 140px;
-  padding: 10px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0.5px solid var(--border-hover);
+  border-radius: var(--radius-md);
   background: var(--white);
-  font-size: 13px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.filters select:focus {
+  outline: 2px solid var(--purple);
+  outline-offset: 1px;
+  border-color: transparent;
 }
 
 .export-btn {
-  padding: 10px 14px;
-  background: var(--text);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--white);
+  color: var(--text);
+  border: 0.5px solid var(--border-hover);
+  border-radius: var(--radius-md);
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* SUMMARY */
+.export-btn:hover {
+  background: var(--surface);
+}
+
+/* ── Summary footer ── */
 .summary {
-  margin-top: 14px;
   display: flex;
-  gap: 12px;
-  font-size: 13px;
+  gap: 16px;
+  padding: 10px 14px;
+  font-size: 12px;
   color: var(--muted);
+  background: var(--surface);
+  border-top: 0.5px solid var(--border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.summary span strong,
+.summary > div strong {
+  color: var(--text);
+  font-weight: 500;
 }
