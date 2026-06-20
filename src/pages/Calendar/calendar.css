@@ -1,0 +1,308 @@
+/* ==========================================================
+   Calendar — clean, modern, minimalist
+   Palette: warm neutral surface, charcoal ink, deep teal accent.
+   Scoped under .calendar-page so it won't collide with the
+   rest of the app's styles.
+   ========================================================== */
+
+.calendar-page {
+  --cal-bg: #faf9f7;
+  --cal-surface: #ffffff;
+  --cal-border: #e8e6e1;
+  --cal-border-strong: #d9d6cf;
+  --cal-text: #1c1b19;
+  --cal-text-secondary: #767168;
+  --cal-text-tertiary: #aca791;
+  --cal-accent: #0b6e64;
+  --cal-accent-soft: #e6f0ee;
+  --cal-accent-contrast: #ffffff;
+  --cal-radius: 14px;
+  --cal-radius-sm: 8px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+  padding: 32px;
+  background: var(--cal-bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  color: var(--cal-text);
+  box-sizing: border-box;
+}
+
+.calendar-page * {
+  box-sizing: border-box;
+}
+
+/* ---------- Calendar card ---------- */
+
+.calendar-card {
+  background: var(--cal-surface);
+  border: 1px solid var(--cal-border);
+  border-radius: var(--cal-radius);
+  padding: 28px;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.calendar-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.calendar-month-label {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.calendar-nav-group {
+  display: flex;
+  gap: 4px;
+}
+
+.calendar-nav-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-surface);
+  color: var(--cal-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.calendar-nav-button:hover {
+  background: var(--cal-bg);
+  border-color: var(--cal-border-strong);
+  color: var(--cal-text);
+}
+
+.calendar-toolbar-right {
+  display: flex;
+  gap: 10px;
+}
+
+.calendar-btn {
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--cal-radius-sm);
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.calendar-btn-ghost {
+  background: var(--cal-surface);
+  border-color: var(--cal-border);
+  color: var(--cal-text-secondary);
+}
+
+.calendar-btn-ghost:hover {
+  border-color: var(--cal-border-strong);
+  color: var(--cal-text);
+}
+
+.calendar-btn-primary {
+  background: var(--cal-accent);
+  color: var(--cal-accent-contrast);
+}
+
+.calendar-btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* ---------- Weekday row ---------- */
+
+.calendar-weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cal-border);
+  margin-bottom: 8px;
+}
+
+.calendar-weekday-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cal-text-tertiary);
+}
+
+/* ---------- Day grid ---------- */
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.calendar-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--cal-radius-sm);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cal-text);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.calendar-cell:hover {
+  background: var(--cal-bg);
+}
+
+.calendar-cell-muted {
+  color: var(--cal-text-tertiary);
+}
+
+.calendar-cell-today .calendar-cell-number {
+  color: var(--cal-accent);
+  font-weight: 700;
+}
+
+.calendar-cell-selected {
+  background: var(--cal-accent);
+}
+
+.calendar-cell-selected .calendar-cell-number {
+  color: var(--cal-accent-contrast);
+  font-weight: 600;
+}
+
+.calendar-cell-selected:hover {
+  background: var(--cal-accent);
+}
+
+.calendar-cell-dot {
+  position: absolute;
+  bottom: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cal-accent);
+}
+
+.calendar-cell-selected .calendar-cell-dot {
+  background: var(--cal-accent-contrast);
+}
+
+/* ---------- Agenda sidebar ---------- */
+
+.calendar-agenda {
+  background: var(--cal-surface);
+  border: 1px solid var(--cal-border);
+  border-radius: var(--cal-radius);
+  padding: 24px;
+  min-height: 200px;
+}
+
+.calendar-agenda-date {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--cal-border);
+}
+
+.calendar-agenda-empty {
+  font-size: 14px;
+  color: var(--cal-text-tertiary);
+  margin: 0;
+}
+
+.calendar-agenda-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.calendar-agenda-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--cal-radius-sm);
+  background: var(--cal-accent-soft);
+}
+
+.calendar-agenda-time {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cal-accent);
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+.calendar-agenda-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-agenda-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cal-text);
+}
+
+.calendar-agenda-client {
+  font-size: 12px;
+  color: var(--cal-text-secondary);
+}
+
+.calendar-agenda-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendar-agenda-group-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0 0 8px;
+}
+
+.calendar-agenda-group-active .calendar-agenda-group-date {
+  color: var(--color-text-info, #185fa5);
+}
+
+.calendar-agenda-group-active {
+  background: var(--color-background-info, #e6f1fb);
+  border-radius: 8px;
+  padding: 8px;
+  margin: -8px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 860px) {
+  .calendar-page {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+}
