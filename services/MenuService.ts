@@ -3,7 +3,8 @@ import type { IMenuService, MenuItem } from './interface/IMenuService';
 export class MenuService implements IMenuService {
     private menuItems: MenuItem[] = [
         { sortOrder: 1, name: 'Home',     iconClass: 'fa-solid fa-house',               path: '/home' },
-        { sortOrder: 2, name: 'Calendar', iconClass: 'fa-solid fa-calendar',               path: '/calendar' },
+
+        { sortOrder: 2, name: 'Calendar', iconClass: 'fa-solid fa-calendar', path: '/calendar' },
         { sortOrder: 10, name: 'Members', iconClass: 'fa-solid fa-users', path: '',
             subMenuItems: [
                 { sortOrder: 11, name: 'All Members', iconClass: 'fa-solid fa-list',               path: '/AllMembers' },
