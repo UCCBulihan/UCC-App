@@ -298,6 +298,18 @@
   margin: -8px;
 }
 
+.calendar-cell-holiday {
+  border-color: var(--color-border-danger, #e24b4a);
+  background: rgba(226, 75, 74, 0.06);
+}
+
+.calendar-agenda-item-holiday .calendar-agenda-time {
+  background: rgba(226, 75, 74, 0.12);
+  color: var(--color-text-danger, #a32d2d);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 860px) {

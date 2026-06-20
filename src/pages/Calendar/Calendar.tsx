@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import './calendar.css'
 
@@ -6,6 +6,13 @@ type Activity = {
   time: string
   title: string
   client?: string
+  isHoliday?: boolean
+}
+
+type Holiday = {
+  date: string // 'YYYY-MM-DD'
+  name: string
+  localName: string
 }
 
 // Demo data — replace with activities fetched from your backend.
@@ -32,6 +39,10 @@ const SAMPLE_ACTIVITIES: Record<string, Activity[]> = {
 }
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// Public holiday source — free, no API key, CORS-enabled.
+// Docs: https://date.nager.at/api
+const HOLIDAY_COUNTRY_CODE = 'PH'
 
 function toKey(date: Date): string {
   const y = date.getFullYear()
@@ -69,34 +80,81 @@ export default function Calendar() {
   const today = useMemo(() => new Date(), [])
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(today)
+  const [holidays, setHolidays] = useState<Record<string, Holiday>>({})
+  const [holidaysError, setHolidaysError] = useState(false)
 
   const days = useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor])
+  const year = monthAnchor.getFullYear()
+
+  // Fetch public holidays for the visible year. Re-fetches only when the
+  // year changes (not on every month flip), and caches per year in state.
+  useEffect(() => {
+    let cancelled = false
+
+    fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${HOLIDAY_COUNTRY_CODE}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load holidays')
+        return res.json() as Promise<Holiday[]>
+      })
+      .then((data) => {
+        if (cancelled) return
+        const byDate: Record<string, Holiday> = {}
+        data.forEach((h) => {
+          byDate[h.date] = h
+        })
+        setHolidays(byDate)
+        setHolidaysError(false)
+      })
+      .catch(() => {
+        if (!cancelled) setHolidaysError(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [year])
+
+  // Combine a holiday (if any) with that day's scheduled activities.
+  function getDayItems(dateKey: string): Activity[] {
+    const items: Activity[] = []
+    const holiday = holidays[dateKey]
+    if (holiday) {
+      items.push({ time: 'Holiday', title: holiday.name, isHoliday: true })
+    }
+    items.push(...(SAMPLE_ACTIVITIES[dateKey] ?? []))
+    return items
+  }
 
   const monthLabel = monthAnchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-  // All activities that fall within the currently viewed month, grouped by day
-  // and sorted chronologically — this replaces the old "selected day only" list.
+  // All activities + holidays for the currently viewed month, grouped by day
+  // and sorted chronologically.
   const monthActivities: DayGroup[] = useMemo(() => {
-    const year = monthAnchor.getFullYear()
     const month = monthAnchor.getMonth()
 
-    return Object.entries(SAMPLE_ACTIVITIES)
-      .filter(([dateKey]) => {
-        const [y, m] = dateKey.split('-').map(Number)
-        return y === year && m === month + 1
-      })
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([dateKey, activities]) => {
-        const [y, m, d] = dateKey.split('-').map(Number)
-        const date = new Date(y, m - 1, d)
-        return {
-          dateKey,
-          date,
-          label: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-          activities,
-        }
-      })
-  }, [monthAnchor])
+    const holidayKeysInMonth = Object.keys(holidays).filter((dateKey) => {
+      const [y, m] = dateKey.split('-').map(Number)
+      return y === year && m === month + 1
+    })
+
+    const activityKeysInMonth = Object.keys(SAMPLE_ACTIVITIES).filter((dateKey) => {
+      const [y, m] = dateKey.split('-').map(Number)
+      return y === year && m === month + 1
+    })
+
+    const allKeys = Array.from(new Set([...holidayKeysInMonth, ...activityKeysInMonth])).sort()
+
+    return allKeys.map((dateKey) => {
+      const [y, m, d] = dateKey.split('-').map(Number)
+      const date = new Date(y, m - 1, d)
+      return {
+        dateKey,
+        date,
+        label: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+        activities: getDayItems(dateKey),
+      }
+    })
+  }, [monthAnchor, holidays])
 
   function goToPrevMonth() {
     setMonthAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -162,13 +220,16 @@ export default function Calendar() {
                 const inCurrentMonth = date.getMonth() === monthAnchor.getMonth()
                 const isToday = isSameDay(date, today)
                 const isSelected = isSameDay(date, selectedDate)
-                const hasActivities = (SAMPLE_ACTIVITIES[toKey(date)] ?? []).length > 0
+                const dateKey = toKey(date)
+                const isHoliday = !!holidays[dateKey]
+                const hasItems = getDayItems(dateKey).length > 0
 
                 const cellClassNames = [
                   'calendar-cell',
                   !inCurrentMonth && 'calendar-cell-muted',
                   isToday && 'calendar-cell-today',
                   isSelected && 'calendar-cell-selected',
+                  isHoliday && 'calendar-cell-holiday',
                 ]
                   .filter(Boolean)
                   .join(' ')
@@ -179,13 +240,20 @@ export default function Calendar() {
                     type="button"
                     className={cellClassNames}
                     onClick={() => setSelectedDate(date)}
+                    title={isHoliday ? holidays[dateKey].name : undefined}
                   >
                     <span className="calendar-cell-number">{date.getDate()}</span>
-                    {hasActivities && <span className="calendar-cell-dot" aria-hidden="true" />}
+                    {hasItems && <span className="calendar-cell-dot" aria-hidden="true" />}
                   </button>
                 )
               })}
             </div>
+
+            {holidaysError && (
+              <p className="calendar-agenda-empty" style={{ marginTop: 8 }}>
+                Couldn't load public holidays right now.
+              </p>
+            )}
           </section>
 
           <aside className="calendar-agenda">
@@ -209,8 +277,17 @@ export default function Calendar() {
                       <h3 className="calendar-agenda-group-date">{group.label}</h3>
                       <ul className="calendar-agenda-list">
                         {group.activities.map((activity) => (
-                          <li key={`${activity.time}-${activity.title}`} className="calendar-agenda-item">
-                            <span className="calendar-agenda-time">{activity.time}</span>
+                          <li
+                            key={`${activity.time}-${activity.title}`}
+                            className={
+                              activity.isHoliday
+                                ? 'calendar-agenda-item calendar-agenda-item-holiday'
+                                : 'calendar-agenda-item'
+                            }
+                          >
+                            <span className="calendar-agenda-time">
+                              {activity.isHoliday ? 'Holiday' : activity.time}
+                            </span>
                             <div className="calendar-agenda-details">
                               <span className="calendar-agenda-title">{activity.title}</span>
                               {activity.client && <span className="calendar-agenda-client">{activity.client}</span>}
