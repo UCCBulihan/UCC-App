@@ -14,7 +14,7 @@ interface Props {
   members: Member[];
   filtered: Member[];
   loading: boolean;
-  onTogglePledger: (id: string, current: boolean) => void;
+  onTogglePledger?: (id: string, current: boolean) => void;
   onArchive: (id: string) => void;
   onEdit: (member: Member) => void;  
 }
@@ -26,6 +26,8 @@ export default function MembersTable({
   members, filtered, loading,
   onTogglePledger, onArchive, onEdit
 }: Props) {
+  const colCount = onTogglePledger ? 5 : 4;
+
   return (
     <div className="members-card">
       <div className="table-scroll">
@@ -33,7 +35,7 @@ export default function MembersTable({
           <thead>
             <tr>
               <th>Member</th>
-              <th>Pledger</th>
+              {onTogglePledger && <th>Pledger</th>}
               <th>Added By</th>
               <th>Date Added</th>
               <th></th>
@@ -42,13 +44,13 @@ export default function MembersTable({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="empty-cell">
+                <td colSpan={colCount} className="empty-cell">
                   <div className="empty-state"><p>Loading members…</p></div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-cell">
+                <td colSpan={colCount} className="empty-cell">
                   <div className="empty-state">
                     <i className="fa-regular fa-user" aria-hidden="true" />
                     <p>No members found.</p>
@@ -66,17 +68,19 @@ export default function MembersTable({
                       </span>
                     </div>
                   </td>
-                  <td>
-                    <button
-                      className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
-                      onClick={() => onTogglePledger(m.id, m.isPledger)}
-                      title={m.isPledger ? 'Click to remove pledger' : 'Click to mark as pledger'}
-                    >
-                      {m.isPledger
-                        ? <><i className="fa-solid fa-circle-check" aria-hidden="true" /> Yes</>
-                        : <span>No</span>}
-                    </button>
-                  </td>
+                  {onTogglePledger && (
+                    <td>
+                      <button
+                        className={`toggle-pledger ${m.isPledger ? 'active' : ''}`}
+                        onClick={() => onTogglePledger(m.id, m.isPledger)}
+                        title={m.isPledger ? 'Click to remove pledger' : 'Click to mark as pledger'}
+                      >
+                        {m.isPledger
+                          ? <><i className="fa-solid fa-circle-check" aria-hidden="true" /> Yes</>
+                          : <span>No</span>}
+                      </button>
+                    </td>
+                  )}
                   <td>
                     <span className="added-by">
                       <i className="fa-regular fa-user" style={{ fontSize: 12 }} aria-hidden="true" />

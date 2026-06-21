@@ -278,7 +278,6 @@
 }
 
 .form-group input,
-.form-group select,
 .form-group textarea {
   height: 38px;
   padding: 0 12px;
@@ -298,7 +297,6 @@
 }
 
 .form-group input:focus,
-.form-group select:focus,
 .form-group textarea:focus {
   outline: 2px solid #1a1a1a;
   outline-offset: 1px;
@@ -388,8 +386,10 @@
 
 /* ═══════════════════════════════════
    MODAL FORM FIELDS (inline-style modals)
+   Note: date/text inputs inside the modal still use native styling.
+   The Member/Visited By/Location/Visit Type/Status fields now use the
+   custom Dropdown component below instead of native <select>.
 ═══════════════════════════════════ */
-.modal select,
 .modal input[type="date"],
 .modal input[type="text"] {
   width: 100%;
@@ -404,7 +404,6 @@
   appearance: auto;
 }
 
-.modal select:focus,
 .modal input[type="date"]:focus,
 .modal input[type="text"]:focus {
   outline: 2px solid #1a1a1a;
@@ -415,3 +414,125 @@
 .modal input[type="text"]::placeholder {
   color: #aaaaaa;
 }
+
+/* ═══════════════════════════════════
+   CUSTOM DROPDOWN (replaces native <select> in the modal)
+═══════════════════════════════════ */
+
+.dd-root {
+  position: relative;
+  width: 100%;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.dd-trigger {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dd-trigger:hover { border-color: #b0b0b0; }
+
+.dd-trigger:focus,
+.dd-trigger.dd-open {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.dd-trigger.dd-error {
+  border-color: #e24b4a;
+  background: #fff5f5;
+}
+
+.dd-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dd-trigger-label.dd-placeholder { color: #aaaaaa; }
+
+.dd-chevron {
+  font-size: 11px;
+  color: #6b6b6b;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.dd-chevron-open { transform: rotate(180deg); }
+
+.dd-disabled .dd-trigger {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  list-style: none;
+}
+
+.dd-option {
+  padding: 9px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-option-placeholder {
+  color: #aaaaaa;
+}
+
+.dd-option:hover,
+.dd-option-highlighted {
+  background: #f3f4f6;
+}
+
+.dd-option-selected {
+  background: #1a1a1a;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.dd-option-selected:hover,
+.dd-option-selected.dd-option-highlighted {
+  background: #333333;
+  color: #ffffff;
+}
+
+/* Scrollbar polish for the menu */
+.dd-menu::-webkit-scrollbar { width: 8px; }
+.dd-menu::-webkit-scrollbar-track { background: transparent; }
+.dd-menu::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+.dd-menu::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }

@@ -67,7 +67,6 @@ export default function MemberModal({
           <div className="field">
             <label htmlFor="firstName">First Name <span className="req">*</span></label>
             <div className="input-wrap">
-              {/* <i className="fa-regular fa-id-card icon" aria-hidden="true" /> */}
               <input type="text" id="firstName" placeholder="e.g. John"
                 value={form.firstName} onChange={onFormChange} />
             </div>
@@ -75,7 +74,6 @@ export default function MemberModal({
           <div className="field">
             <label htmlFor="lastName">Last Name <span className="req">*</span></label>
             <div className="input-wrap">
-              {/* <i className="fa-regular fa-id-card icon" aria-hidden="true" /> */}
               <input type="text" id="lastName" placeholder="e.g. Smith"
                 value={form.lastName} onChange={onFormChange} />
             </div>
@@ -94,7 +92,6 @@ export default function MemberModal({
         <div className="field">
           <label>{isEdit ? 'Modified By' : 'Added By'}</label>
           <div className="input-wrap" style={{ opacity: 0.7 }}>
-            <i className="fa-solid fa-user-shield icon" aria-hidden="true" />
             <input
               type="text"
               value={currentUser}

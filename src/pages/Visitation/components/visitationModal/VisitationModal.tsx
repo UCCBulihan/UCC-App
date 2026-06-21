@@ -6,6 +6,7 @@ import type {
   VisitStatus,
   VisitType,
 } from '../visitationTypes/visitationTypes';
+import Dropdown from '../dropdown/Dropdown';
 
 interface VisitationModalProps {
   isOpen: boolean;
@@ -30,6 +31,10 @@ const emptyForm: NewVisitationInput = {
 
 const ERROR_COLOR = '#e24b4a';
 const ERROR_BG    = '#fff5f5';
+
+const LOCATION_OPTIONS = ['Home', 'Hospital', 'Church', 'Office', 'Other'];
+const VISIT_TYPE_OPTIONS = ['General Visit', 'Pastoral', 'Sick Visit', 'Welcome', 'Follow-up Visit'];
+const STATUS_OPTIONS = ['Scheduled', 'Completed', 'Cancelled'];
 
 export default function VisitationModal({
   isOpen,
@@ -108,9 +113,6 @@ export default function VisitationModal({
     });
   }
 
-  const fieldBorder = (hasError: boolean): React.CSSProperties =>
-    hasError ? { borderColor: ERROR_COLOR, background: ERROR_BG } : {};
-
   const sectionLabel: React.CSSProperties = {
     fontSize: '11px',
     fontWeight: 500,
@@ -173,14 +175,13 @@ export default function VisitationModal({
               <label style={label}>
                 Member Visited <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <Dropdown
                 value={form.memberVisited}
-                onChange={(e) => updateField('memberVisited', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.memberVisited) }}
-              >
-                <option value="">-- Select Member --</option>
-                {members.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+                onChange={(v) => updateField('memberVisited', v)}
+                options={members}
+                placeholder="-- Select Member --"
+                hasError={!!errors.memberVisited}
+              />
               {errors.memberVisited && <p style={errorText}>{errors.memberVisited}</p>}
             </div>
 
@@ -188,14 +189,13 @@ export default function VisitationModal({
               <label style={label}>
                 Visited By <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <Dropdown
                 value={form.visitedBy}
-                onChange={(e) => updateField('visitedBy', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.visitedBy) }}
-              >
-                <option value="">-- Select Visitor --</option>
-                {availableVisitors.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+                onChange={(v) => updateField('visitedBy', v)}
+                options={availableVisitors}
+                placeholder="-- Select Visitor --"
+                hasError={!!errors.visitedBy}
+              />
               {errors.visitedBy && <p style={errorText}>{errors.visitedBy}</p>}
             </div>
           </div>
@@ -210,25 +210,24 @@ export default function VisitationModal({
                 type="date"
                 value={form.visitDate}
                 onChange={(e) => updateField('visitDate', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.visitDate) }}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  fontSize: '13px',
+                  ...(errors.visitDate ? { borderColor: ERROR_COLOR, background: ERROR_BG } : {}),
+                }}
               />
               {errors.visitDate && <p style={errorText}>{errors.visitDate}</p>}
             </div>
 
             <div>
               <label style={label}>Location</label>
-              <select
+              <Dropdown
                 value={form.location}
-                onChange={(e) => updateField('location', e.target.value as VisitLocation)}
-                style={{ width: '100%', height: '38px', fontSize: '13px' }}
-              >
-                <option value="">-- Select Location --</option>
-                <option>Home</option>
-                <option>Hospital</option>
-                <option>Church</option>
-                <option>Office</option>
-                <option>Other</option>
-              </select>
+                onChange={(v) => updateField('location', v as VisitLocation)}
+                options={LOCATION_OPTIONS}
+                placeholder="-- Select Location --"
+              />
             </div>
           </div>
 
@@ -236,34 +235,25 @@ export default function VisitationModal({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
             <div>
               <label style={label}>Visit Type</label>
-              <select
+              <Dropdown
                 value={form.visitType}
-                onChange={(e) => updateField('visitType', e.target.value as VisitType)}
-                style={{ width: '100%', height: '38px', fontSize: '13px' }}
-              >
-                <option value="">-- Select Type --</option>
-                <option>General Visit</option>
-                <option>Pastoral</option>
-                <option>Sick Visit</option>
-                <option>Welcome</option>
-                <option>Follow-up Visit</option>
-              </select>
+                onChange={(v) => updateField('visitType', v as VisitType)}
+                options={VISIT_TYPE_OPTIONS}
+                placeholder="-- Select Type --"
+              />
             </div>
 
             <div>
               <label style={label}>
                 Status <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <Dropdown
                 value={form.status}
-                onChange={(e) => updateField('status', e.target.value as VisitStatus)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.status) }}
-              >
-                <option value="">-- Select Status --</option>
-                <option>Scheduled</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
-              </select>
+                onChange={(v) => updateField('status', v as VisitStatus)}
+                options={STATUS_OPTIONS}
+                placeholder="-- Select Status --"
+                hasError={!!errors.status}
+              />
               {errors.status && <p style={errorText}>{errors.status}</p>}
             </div>
           </div>
