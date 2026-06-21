@@ -162,7 +162,7 @@ export default function SundaySchool() {
           <div className="sit-page">
             <header className="sit-page-head">
               <h1 className="sit-title">Sunday Income Tracker</h1>
-              <p className="sit-subtitle">Track what comes in every Sunday, month by month.</p>
+              {/* <p className="sit-subtitle">Track what comes in every Sunday, month by month.</p> */}
             </header>
 
             <section className="sit-summary">
