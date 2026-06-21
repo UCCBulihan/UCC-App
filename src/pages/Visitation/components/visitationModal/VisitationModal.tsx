@@ -7,6 +7,7 @@ import type {
   VisitType,
 } from '../visitationTypes/visitationTypes';
 import Dropdown from '../dropdown/Dropdown';
+import MultiSelectDropdown from '../dropdown/MultiSelectDropdown';
 
 interface VisitationModalProps {
   isOpen: boolean;
@@ -19,9 +20,9 @@ interface VisitationModalProps {
 }
 
 const emptyForm: NewVisitationInput = {
-  memberVisited: '',
+  memberVisited: [],
   visitDate: '',
-  visitedBy: '',
+  visitedBy: [],
   location: '',
   visitType: '',
   status: '',
@@ -63,7 +64,10 @@ export default function VisitationModal({
 
   if (!isOpen) return null;
 
-  const availableVisitors = visitors.filter((v) => v !== form.memberVisited);
+  // A person can't be both a visited member and a visitor on the same record,
+  // so each list excludes whatever is already picked in the other.
+  const availableVisitors = visitors.filter((v) => !form.memberVisited.includes(v));
+  const availableMembers  = members.filter((m) => !form.visitedBy.includes(m));
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) handleClose();
@@ -77,13 +81,16 @@ export default function VisitationModal({
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
-    if (!form.memberVisited) newErrors.memberVisited = 'Member Visited is required.';
-    if (!form.visitedBy)     newErrors.visitedBy     = 'Visited By is required.';
-    if (!form.visitDate)     newErrors.visitDate      = 'Visit Date is required.';
-    if (!form.status)        newErrors.status         = 'Status is required.';
-    if (form.memberVisited && form.visitedBy && form.memberVisited === form.visitedBy) {
-      newErrors.visitedBy = 'Visitor cannot be the same as the member being visited.';
+    if (form.memberVisited.length === 0) newErrors.memberVisited = 'At least one member visited is required.';
+    if (form.visitedBy.length === 0)     newErrors.visitedBy     = 'At least one visitor is required.';
+    if (!form.visitDate)                 newErrors.visitDate     = 'Visit Date is required.';
+    if (!form.status)                    newErrors.status        = 'Status is required.';
+
+    const overlap = form.memberVisited.filter((m) => form.visitedBy.includes(m));
+    if (overlap.length > 0) {
+      newErrors.visitedBy = 'A person cannot be both a visitor and a member visited.';
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -99,16 +106,39 @@ export default function VisitationModal({
     setErrors({});
   }
 
+  function updateMemberVisited(values: string[]) {
+    setForm((prev) => ({
+      ...prev,
+      memberVisited: values,
+      visitedBy: prev.visitedBy.filter((v) => !values.includes(v)),
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.memberVisited;
+      delete next.visitedBy;
+      return next;
+    });
+  }
+
+  function updateVisitedBy(values: string[]) {
+    setForm((prev) => ({
+      ...prev,
+      visitedBy: values,
+      memberVisited: prev.memberVisited.filter((m) => !values.includes(m)),
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.visitedBy;
+      delete next.memberVisited;
+      return next;
+    });
+  }
+
   function updateField<K extends keyof NewVisitationInput>(key: K, value: NewVisitationInput[K]) {
-    if (key === 'memberVisited' && value === form.visitedBy) {
-      setForm((prev) => ({ ...prev, memberVisited: value as string, visitedBy: '' }));
-    } else {
-      setForm((prev) => ({ ...prev, [key]: value }));
-    }
+    setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => {
       const next = { ...prev };
       delete next[key as string];
-      if (key === 'memberVisited') delete next.visitedBy;
       return next;
     });
   }
@@ -170,30 +200,30 @@ export default function VisitationModal({
           <p style={sectionLabel}>Visit Information</p>
 
           {/* Row 1: Member Visited + Visited By */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-            <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '14px' }}>
+            <div style={{ minWidth: 0 }}>
               <label style={label}>
-                Member Visited <span style={{ color: ERROR_COLOR }}>*</span>
+                Member(s) Visited <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <Dropdown
+              <MultiSelectDropdown
                 value={form.memberVisited}
-                onChange={(v) => updateField('memberVisited', v)}
-                options={members}
-                placeholder="-- Select Member --"
+                onChange={updateMemberVisited}
+                options={availableMembers}
+                placeholder="-- Select Member(s) --"
                 hasError={!!errors.memberVisited}
               />
               {errors.memberVisited && <p style={errorText}>{errors.memberVisited}</p>}
             </div>
 
-            <div>
+            <div style={{ minWidth: 0 }}>
               <label style={label}>
                 Visited By <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <Dropdown
+              <MultiSelectDropdown
                 value={form.visitedBy}
-                onChange={(v) => updateField('visitedBy', v)}
+                onChange={updateVisitedBy}
                 options={availableVisitors}
-                placeholder="-- Select Visitor --"
+                placeholder="-- Select Visitor(s) --"
                 hasError={!!errors.visitedBy}
               />
               {errors.visitedBy && <p style={errorText}>{errors.visitedBy}</p>}
@@ -201,7 +231,7 @@ export default function VisitationModal({
           </div>
 
           {/* Row 2: Visit Date + Location */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '14px' }}>
             <div>
               <label style={label}>
                 Visit Date <span style={{ color: ERROR_COLOR }}>*</span>
@@ -232,7 +262,7 @@ export default function VisitationModal({
           </div>
 
           {/* Row 3: Visit Type + Status */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '20px' }}>
             <div>
               <label style={label}>Visit Type</label>
               <Dropdown

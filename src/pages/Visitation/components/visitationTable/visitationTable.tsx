@@ -1,10 +1,22 @@
 import type { VisitationRecord } from '../visitationTypes/visitationTypes';
-import { formatDisplayDate, formatShortDate } from '../visitationHelpers/visitationHelpers';
+import { formatDisplayDate, formatShortDate, formatNameList } from '../visitationHelpers/visitationHelpers';
 
 interface VisitationTableProps {
   visitations: VisitationRecord[];
   onNotesChange: (id: string, notes: string) => void;
   onEdit: (record: VisitationRecord) => void;
+}
+
+function NameCell({ names }: { names: string[] }) {
+  const { primary, moreCount, full } = formatNameList(names);
+  if (moreCount === 0) return <span>{primary}</span>;
+  return (
+    <span className="names-cell">
+      <span className="names-cell-primary">{primary}</span>
+      <span className="names-cell-more">+{moreCount} more</span>
+      <span className="names-cell-tooltip">{full}</span>
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: VisitationRecord['status'] }) {
@@ -41,9 +53,9 @@ export default function VisitationTable({ visitations, onNotesChange, onEdit }: 
             {visitations.map((record, index) => (
               <tr key={record.id}>
                 <td className="col-num">{index + 1}</td>
-                <td>{record.memberVisited}</td>
+                <td><NameCell names={record.memberVisited} /></td>
                 <td>{formatDisplayDate(record.visitDate)}</td>
-                <td>{record.visitedBy}</td>
+                <td><NameCell names={record.visitedBy} /></td>
                 <td>{record.location}</td>
                 <td>
                   {record.visitType && (

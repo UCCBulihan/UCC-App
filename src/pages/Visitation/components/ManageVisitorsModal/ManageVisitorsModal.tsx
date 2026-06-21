@@ -23,9 +23,12 @@ export default function ManageVisitorsModal({
 
   if (!isOpen) return null;
 
-  const filtered = members.filter((m) =>
-    m.fullName.toLowerCase().includes(search.toLowerCase())
-  );
+ const filtered = members
+  .filter((m) => m.fullName.toLowerCase().includes(search.toLowerCase()))
+  .sort((a, b) => {
+    if (a.isVisitor !== b.isVisitor) return a.isVisitor ? -1 : 1;
+    return a.fullName.localeCompare(b.fullName); 
+  });
 
   return (
     <div className="modal-overlay open" onClick={(e) => e.target === e.currentTarget && onClose()}>

@@ -11,9 +11,9 @@ export type VisitLocation = 'Home' | 'Hospital' | 'Church' | 'Office' | 'Other';
 
 export interface VisitationRecord {
   id: string;
-  memberVisited: string;
+  memberVisited: string[];
   visitDate: string; // ISO format e.g. "2026-06-10"
-  visitedBy: string;
+  visitedBy: string[];
   location: VisitLocation | '';
   visitType: VisitType | '';
   status: VisitStatus | '';

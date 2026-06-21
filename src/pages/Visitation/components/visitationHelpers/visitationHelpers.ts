@@ -46,9 +46,9 @@ export function exportVisitationsToCSV(records: VisitationRecord[], filename = '
   ];
 
   const rows = records.map((r) => [
-    r.memberVisited,
+    r.memberVisited.join('; '),
     formatDisplayDate(r.visitDate),
-    r.visitedBy,
+    r.visitedBy.join('; '),
     r.location,
     r.visitType,
     r.status,
@@ -74,6 +74,20 @@ export function exportVisitationsToCSV(records: VisitationRecord[], filename = '
 }
 
 /**
+ * Formats a list of names for compact table display.
+ * Returns the first name plus a "+N more" suffix indicator when there
+ * are additional names, along with the full list for use in a tooltip.
+ */
+export function formatNameList(names: string[]): { primary: string; moreCount: number; full: string } {
+  if (names.length === 0) return { primary: '—', moreCount: 0, full: '' };
+  return {
+    primary: names[0],
+    moreCount: names.length - 1,
+    full: names.join(', '),
+  };
+}
+
+/**
  * Applies the active filters to the full list of visitation records.
  */
 export function filterVisitations(
@@ -81,7 +95,7 @@ export function filterVisitations(
   filters: { member: string; visitType: string; month: string; year: string }
 ): VisitationRecord[] {
   return records.filter((record) => {
-    if (filters.member && record.memberVisited !== filters.member) return false;
+    if (filters.member && !record.memberVisited.includes(filters.member)) return false;
     if (filters.visitType && record.visitType !== filters.visitType) return false;
 
     if (filters.month || filters.year) {

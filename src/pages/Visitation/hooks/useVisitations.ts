@@ -45,9 +45,9 @@ export function useVisitations() {
         const data = docSnap.data();
         return {
           id:             docSnap.id,
-          memberVisited:  data.memberVisited  ?? '',
+          memberVisited:  Array.isArray(data.memberVisited) ? data.memberVisited : [],
           visitDate:      data.visitDate      ?? '',
-          visitedBy:      data.visitedBy      ?? '',
+          visitedBy:      Array.isArray(data.visitedBy) ? data.visitedBy : [],
           location:       data.location       ?? '',
           visitType:      data.visitType      ?? '',
           status:         data.status         ?? '',
