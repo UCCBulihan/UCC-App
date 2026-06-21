@@ -150,8 +150,10 @@ export default function Calendar() {
   const [draft, setDraft] = useState<NewActivityDraft>(() => createEmptyDraft(today, INITIAL_CATEGORIES[0]?.id ?? null))
   const [formError, setFormError] = useState<string | null>(null)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [categoryModalView, setCategoryModalView] = useState<'create' | 'manage'>('create')
   const [categoryDraft, setCategoryDraft] = useState<NewCategoryDraft>(createEmptyCategoryDraft)
   const [categoryFormError, setCategoryFormError] = useState<string | null>(null)
+  const [categoryPendingDelete, setCategoryPendingDelete] = useState<Category | null>(null)
 
   const days = useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor])
   const year = monthAnchor.getFullYear()
@@ -200,6 +202,18 @@ export default function Calendar() {
     return categories.find((c) => c.id === categoryId)
   }
 
+  // Counts how many activities reference a category, across all dates —
+  // used to warn the user before they delete a category that's in use.
+  function countActivitiesUsingCategory(categoryId: string): number {
+    let count = 0
+    Object.values(activitiesByDate).forEach((activities) => {
+      activities.forEach((activity) => {
+        if (activity.categoryId === categoryId) count += 1
+      })
+    })
+    return count
+  }
+
   const monthLabel = monthAnchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   // All activities + holidays for the currently viewed month, grouped by day
@@ -232,17 +246,19 @@ export default function Calendar() {
   }, [monthAnchor, holidays, activitiesByDate])
 
   // Allow closing modals with Escape, matching standard dialog behavior.
-  // The category modal sits on top of the activity modal, so close it first.
+  // Order matters: the delete confirmation sits on top of the category
+  // modal, which sits on top of the activity modal.
   useEffect(() => {
     if (!isModalOpen && !isCategoryModalOpen) return
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      if (isCategoryModalOpen) setIsCategoryModalOpen(false)
+      if (categoryPendingDelete) setCategoryPendingDelete(null)
+      else if (isCategoryModalOpen) setIsCategoryModalOpen(false)
       else setIsModalOpen(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isModalOpen, isCategoryModalOpen])
+  }, [isModalOpen, isCategoryModalOpen, categoryPendingDelete])
 
   function goToPrevMonth() {
     setMonthAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -270,11 +286,55 @@ export default function Calendar() {
   function openCategoryModal() {
     setCategoryDraft(createEmptyCategoryDraft())
     setCategoryFormError(null)
+    setCategoryModalView('create')
+    setCategoryPendingDelete(null)
+    setIsCategoryModalOpen(true)
+  }
+
+  function openManageCategories() {
+    setCategoryFormError(null)
+    setCategoryPendingDelete(null)
+    setCategoryModalView('manage')
     setIsCategoryModalOpen(true)
   }
 
   function closeCategoryModal() {
     setIsCategoryModalOpen(false)
+    setCategoryPendingDelete(null)
+  }
+
+  function requestDeleteCategory(category: Category) {
+    setCategoryPendingDelete(category)
+  }
+
+  function cancelDeleteCategory() {
+    setCategoryPendingDelete(null)
+  }
+
+  function confirmDeleteCategory() {
+    if (!categoryPendingDelete) return
+    const deletedId = categoryPendingDelete.id
+
+    setCategories((prev) => prev.filter((c) => c.id !== deletedId))
+
+    // Activities that referenced the deleted category fall back to
+    // uncategorized rather than disappearing or pointing at a dangling id.
+    setActivitiesByDate((prev) => {
+      const next: Record<string, Activity[]> = {}
+      Object.entries(prev).forEach(([dateKey, activities]) => {
+        next[dateKey] = activities.map((activity) =>
+          activity.categoryId === deletedId ? { ...activity, categoryId: undefined } : activity,
+        )
+      })
+      return next
+    })
+
+    // If the activity form currently has this category selected, clear it too.
+    if (draft.categoryId === deletedId) {
+      updateDraft('categoryId', null)
+    }
+
+    setCategoryPendingDelete(null)
   }
 
   function updateCategoryDraft<K extends keyof NewCategoryDraft>(key: K, value: NewCategoryDraft[K]) {
@@ -629,9 +689,16 @@ export default function Calendar() {
                     <div className="calendar-field">
                       <div className="calendar-field-label-row">
                         <span className="calendar-field-label">Category</span>
-                        <button type="button" className="calendar-add-category-link" onClick={openCategoryModal}>
-                          + Category
-                        </button>
+                        <div className="calendar-field-label-actions">
+                          <button type="button" className="calendar-add-category-link" onClick={openCategoryModal}>
+                            + Category
+                          </button>
+                          {categories.length > 0 && (
+                            <button type="button" className="calendar-add-category-link" onClick={openManageCategories}>
+                              Manage
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {categories.length === 0 ? (
@@ -684,12 +751,12 @@ export default function Calendar() {
                 className="calendar-modal"
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="new-category-title"
+                aria-labelledby="category-modal-title"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="calendar-modal-header">
-                  <h2 className="calendar-modal-title" id="new-category-title">
-                    New category
+                  <h2 className="calendar-modal-title" id="category-modal-title">
+                    {categoryModalView === 'manage' ? 'Manage categories' : 'New category'}
                   </h2>
                   <button
                     type="button"
@@ -701,58 +768,146 @@ export default function Calendar() {
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmitCategory}>
-                  <div className="calendar-modal-body">
-                    <div className="calendar-field">
-                      <label className="calendar-field-label" htmlFor="category-name">
-                        Category name
-                      </label>
-                      <input
-                        id="category-name"
-                        type="text"
-                        className="calendar-input"
-                        placeholder="e.g. Client Meeting"
-                        value={categoryDraft.name}
-                        onChange={(e) => updateCategoryDraft('name', e.target.value)}
-                        autoFocus
-                      />
+                {categoryModalView === 'manage' ? (
+                  <>
+                    <div className="calendar-modal-body">
+                      {categories.length === 0 ? (
+                        <p className="calendar-agenda-empty">No categories yet.</p>
+                      ) : (
+                        <ul className="calendar-manage-list">
+                          {categories.map((cat) => {
+                            const usageCount = countActivitiesUsingCategory(cat.id)
+                            return (
+                              <li key={cat.id} className="calendar-manage-row">
+                                <span className="calendar-category-chip-dot" style={{ background: cat.color }} />
+                                <span className="calendar-manage-row-name">{cat.name}</span>
+                                {usageCount > 0 && (
+                                  <span className="calendar-manage-row-count">
+                                    {usageCount} {usageCount === 1 ? 'activity' : 'activities'}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="calendar-manage-row-delete"
+                                  onClick={() => requestDeleteCategory(cat)}
+                                  aria-label={`Delete ${cat.name}`}
+                                  title={`Delete ${cat.name}`}
+                                >
+                                  ✕
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
                     </div>
 
-                    <div className="calendar-field">
-                      <span className="calendar-field-label">Color</span>
-                      <div className="calendar-swatch-row">
-                        {CATEGORY_COLORS.map((c) => {
-                          const isSelected = categoryDraft.color === c.value
-                          return (
-                            <button
-                              key={c.value}
-                              type="button"
-                              className={isSelected ? 'calendar-swatch calendar-swatch-selected' : 'calendar-swatch'}
-                              style={{ background: c.value, '--cal-swatch-color': c.value } as CSSProperties}
-                              onClick={() => updateCategoryDraft('color', c.value)}
-                              aria-label={c.label}
-                              aria-pressed={isSelected}
-                              title={c.label}
-                            >
-                              {isSelected && <span className="calendar-swatch-check">✓</span>}
-                            </button>
-                          )
-                        })}
+                    <div className="calendar-modal-footer">
+                      <button
+                        type="button"
+                        className="calendar-btn calendar-btn-ghost"
+                        onClick={() => {
+                          setCategoryDraft(createEmptyCategoryDraft())
+                          setCategoryFormError(null)
+                          setCategoryModalView('create')
+                        }}
+                      >
+                        + New category
+                      </button>
+                      <button type="button" className="calendar-btn calendar-btn-primary" onClick={closeCategoryModal}>
+                        Done
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <form onSubmit={handleSubmitCategory}>
+                    <div className="calendar-modal-body">
+                      <div className="calendar-field">
+                        <label className="calendar-field-label" htmlFor="category-name">
+                          Category name
+                        </label>
+                        <input
+                          id="category-name"
+                          type="text"
+                          className="calendar-input"
+                          placeholder="e.g. Client Meeting"
+                          value={categoryDraft.name}
+                          onChange={(e) => updateCategoryDraft('name', e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="calendar-field">
+                        <span className="calendar-field-label">Color</span>
+                        <div className="calendar-swatch-row">
+                          {CATEGORY_COLORS.map((c) => {
+                            const isSelected = categoryDraft.color === c.value
+                            return (
+                              <button
+                                key={c.value}
+                                type="button"
+                                className={isSelected ? 'calendar-swatch calendar-swatch-selected' : 'calendar-swatch'}
+                                style={{ background: c.value, '--cal-swatch-color': c.value } as CSSProperties}
+                                onClick={() => updateCategoryDraft('color', c.value)}
+                                aria-label={c.label}
+                                aria-pressed={isSelected}
+                                title={c.label}
+                              >
+                                {isSelected && <span className="calendar-swatch-check">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {categoryFormError && <p className="calendar-field-error">{categoryFormError}</p>}
+                    </div>
+
+                    <div className="calendar-modal-footer">
+                      {categories.length > 0 && (
+                        <button
+                          type="button"
+                          className="calendar-btn calendar-btn-ghost"
+                          onClick={() => {
+                            setCategoryFormError(null)
+                            setCategoryModalView('manage')
+                          }}
+                        >
+                          Back to list
+                        </button>
+                      )}
+                      <button type="submit" className="calendar-btn calendar-btn-primary">
+                        Save category
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {categoryPendingDelete && (
+                  <div className="calendar-confirm-overlay" onClick={cancelDeleteCategory}>
+                    <div className="calendar-confirm-box" onClick={(e) => e.stopPropagation()}>
+                      <p className="calendar-confirm-text">
+                        Delete <strong>{categoryPendingDelete.name}</strong>?
+                        {countActivitiesUsingCategory(categoryPendingDelete.id) > 0 && (
+                          <>
+                            {' '}
+                            {countActivitiesUsingCategory(categoryPendingDelete.id)}{' '}
+                            {countActivitiesUsingCategory(categoryPendingDelete.id) === 1 ? 'activity' : 'activities'} using
+                            this category will become uncategorized.
+                          </>
+                        )}
+                      </p>
+                      <div className="calendar-confirm-actions">
+                        <button type="button" className="calendar-btn calendar-btn-ghost" onClick={cancelDeleteCategory}>
+                          Cancel
+                        </button>
+                        <button type="button" className="calendar-btn calendar-btn-danger" onClick={confirmDeleteCategory}>
+                          Delete
+                        </button>
                       </div>
                     </div>
-
-                    {categoryFormError && <p className="calendar-field-error">{categoryFormError}</p>}
                   </div>
-
-                  <div className="calendar-modal-footer">
-                    <button type="button" className="calendar-btn calendar-btn-ghost" onClick={closeCategoryModal}>
-                      Cancel
-                    </button>
-                    <button type="submit" className="calendar-btn calendar-btn-primary">
-                      Save category
-                    </button>
-                  </div>
-                </form>
+                )}
               </div>
             </div>
           )}

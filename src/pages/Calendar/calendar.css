@@ -124,6 +124,15 @@
   opacity: 0.9;
 }
 
+.calendar-btn-danger {
+  background: var(--color-background-danger, #dc2626);
+  color: #ffffff;
+}
+
+.calendar-btn-danger:hover {
+  opacity: 0.9;
+}
+
 /* ---------- Weekday row ---------- */
 
 .calendar-weekday-row {
@@ -330,6 +339,7 @@
 }
 
 .calendar-modal {
+  position: relative;
   background: var(--cal-surface);
   border-radius: var(--cal-radius);
   border: 1px solid var(--cal-border);
@@ -496,6 +506,17 @@
   margin-bottom: 6px;
 }
 
+.calendar-field-label-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-field-label-actions .calendar-add-category-link + .calendar-add-category-link {
+  padding-left: 8px;
+  border-left: 1px solid var(--cal-border);
+}
+
 .calendar-add-category-link {
   font-size: 12px;
   font-weight: 600;
@@ -550,6 +571,104 @@
   flex-shrink: 0;
 }
 
+/* ---------- Manage categories list ---------- */
+
+.calendar-manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: var(--cal-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.calendar-manage-row:hover {
+  background: var(--cal-bg);
+}
+
+.calendar-manage-row-name {
+  font-size: 14px;
+  color: var(--cal-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-manage-row-count {
+  font-size: 12px;
+  color: var(--cal-text-tertiary);
+  white-space: nowrap;
+}
+
+.calendar-manage-row-delete {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--cal-text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.calendar-manage-row-delete:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--color-text-danger, #a32d2d);
+}
+
+/* ---------- Delete confirmation ---------- */
+
+.calendar-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 27, 25, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1001;
+  animation: calendar-overlay-in 0.12s ease;
+}
+
+.calendar-confirm-box {
+  background: var(--cal-surface);
+  border: 1px solid var(--cal-border);
+  border-radius: var(--cal-radius-sm);
+  box-shadow: 0 16px 32px -8px rgba(28, 27, 25, 0.3);
+  padding: 20px;
+  max-width: 320px;
+  width: 100%;
+}
+
+.calendar-confirm-text {
+  font-size: 14px;
+  color: var(--cal-text);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.calendar-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .calendar-field-error {
   font-size: 12px;
   color: var(--color-text-danger, #a32d2d);
@@ -575,4 +694,4 @@
     flex-direction: column;
     gap: 18px;
   }
-} 
+}
