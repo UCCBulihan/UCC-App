@@ -201,6 +201,7 @@
   max-width: 95vw;
   max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
 }
 
@@ -278,7 +279,6 @@
 }
 
 .form-group input,
-.form-group select,
 .form-group textarea {
   height: 38px;
   padding: 0 12px;
@@ -298,7 +298,6 @@
 }
 
 .form-group input:focus,
-.form-group select:focus,
 .form-group textarea:focus {
   outline: 2px solid #1a1a1a;
   outline-offset: 1px;
@@ -388,8 +387,10 @@
 
 /* ═══════════════════════════════════
    MODAL FORM FIELDS (inline-style modals)
+   Note: date/text inputs inside the modal still use native styling.
+   The Member/Visited By/Location/Visit Type/Status fields now use the
+   custom Dropdown component below instead of native <select>.
 ═══════════════════════════════════ */
-.modal select,
 .modal input[type="date"],
 .modal input[type="text"] {
   width: 100%;
@@ -404,7 +405,6 @@
   appearance: auto;
 }
 
-.modal select:focus,
 .modal input[type="date"]:focus,
 .modal input[type="text"]:focus {
   outline: 2px solid #1a1a1a;
@@ -415,3 +415,280 @@
 .modal input[type="text"]::placeholder {
   color: #aaaaaa;
 }
+
+/* ═══════════════════════════════════
+   CUSTOM DROPDOWN (replaces native <select> in the modal)
+═══════════════════════════════════ */
+
+.dd-root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.dd-trigger {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.dd-trigger:hover { border-color: #b0b0b0; }
+
+.dd-trigger:focus,
+.dd-trigger.dd-open {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.dd-trigger.dd-error {
+  border-color: #e24b4a;
+  background: #fff5f5;
+}
+
+.dd-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dd-trigger-label.dd-placeholder { color: #aaaaaa; }
+
+.dd-chevron {
+  font-size: 11px;
+  color: #6b6b6b;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.dd-chevron-open { transform: rotate(180deg); }
+
+.dd-disabled .dd-trigger {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  list-style: none;
+}
+
+.dd-option {
+  padding: 9px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-option-placeholder {
+  color: #aaaaaa;
+}
+
+.dd-option:hover,
+.dd-option-highlighted {
+  background: #f3f4f6;
+}
+
+.dd-option-selected {
+  background: #1a1a1a;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.dd-option-selected:hover,
+.dd-option-selected.dd-option-highlighted {
+  background: #333333;
+  color: #ffffff;
+}
+
+/* Scrollbar polish for the menu */
+.dd-menu::-webkit-scrollbar { width: 8px; }
+.dd-menu::-webkit-scrollbar-track { background: transparent; }
+.dd-menu::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+.dd-menu::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+
+/* ═══════════════════════════════════
+   MULTI-SELECT DROPDOWN (trigger + summary box + expandable list)
+═══════════════════════════════════ */
+
+.dd-summary-box {
+  width: 100%;
+  height: 38px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.dd-summary-box:hover { border-color: #b0b0b0; }
+
+.dd-summary-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.dd-expanded-list {
+  margin-top: 6px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dd-expanded-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+  min-width: 0;
+}
+
+.dd-expanded-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.dd-expanded-remove {
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+.dd-expanded-remove:hover { color: #1a1a1a; }
+
+/* Scrollbar polish for the expanded list */
+.dd-expanded-list::-webkit-scrollbar { width: 8px; }
+.dd-expanded-list::-webkit-scrollbar-track { background: transparent; }
+.dd-expanded-list::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+.dd-expanded-list::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+
+.dd-checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 1px solid #c0c0c0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #ffffff;
+  background: #ffffff;
+}
+
+.dd-checkbox-checked {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+}
+
+.dd-option-multi {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dd-option-multi.dd-option-selected {
+  background: transparent;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+.dd-option-multi.dd-option-selected:hover { background: #f3f4f6; }
+
+/* ═══════════════════════════════════
+   MULTI-NAME TABLE CELL ("Juan +2 more")
+═══════════════════════════════════ */
+
+.names-cell {
+  position: relative;
+  display: inline-block;
+}
+
+.names-cell-primary { color: #1a1a1a; }
+
+.names-cell-more {
+  color: #6b6b6b;
+  font-size: 12px;
+  margin-left: 4px;
+  cursor: default;
+  border-bottom: 1px dotted #b0b0b0;
+}
+
+.names-cell-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  background: #1a1a1a;
+  color: #ffffff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+.names-cell:hover .names-cell-tooltip { display: block; }

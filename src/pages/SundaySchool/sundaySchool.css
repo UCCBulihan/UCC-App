@@ -1,0 +1,434 @@
+/* ==========================================================
+   sundaySchool.css
+   Styles for the Sunday Income Tracker.
+   All selectors are prefixed with .sit- to avoid colliding
+   with other global classNames in the app (NavigationBar,
+   app-layout, main-content, etc.)
+   ========================================================== */
+
+.sit-app{
+  --sit-bg:        #fafaf9;
+  --sit-surface:   #ffffff;
+  --sit-ink:       #18181b;
+  --sit-ink-soft:  #71717a;
+  --sit-ink-faint: #a1a1aa;
+  --sit-line:      #e7e5e4;
+  --sit-accent:    #4f46e5;
+  --sit-accent-bg: #eef2ff;
+  --sit-good:      #15803d;
+  --sit-good-bg:   #ecfdf3;
+  --sit-pending:   #b45309;
+  --sit-pending-bg:#fef3e8;
+
+  display: block;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--sit-ink);
+  background: var(--sit-bg);
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+.sit-app *,
+.sit-app *::before,
+.sit-app *::after{
+  box-sizing: border-box;
+}
+.sit-app button,
+.sit-app input{
+  font-family: inherit;
+  color: inherit;
+}
+
+/* ===== PAGE ===== */
+.sit-page{
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ===== HEADER ===== */
+.sit-page-head{
+  margin-bottom: 28px;
+}
+.sit-title{
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+.sit-subtitle{
+  font-size: 14px;
+  color: var(--sit-ink-soft);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ===== SUMMARY ===== */
+.sit-summary{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--sit-line);
+  border: 1px solid var(--sit-line);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.sit-summary-cell{
+  background: var(--sit-surface);
+  padding: 20px 22px;
+}
+.sit-summary-cell .sit-label{
+  font-size: 12.5px;
+  color: var(--sit-ink-soft);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.sit-summary-cell .sit-value{
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.sit-summary-cell .sit-value.sit-accent{ color: var(--sit-accent); }
+.sit-summary-cell .sit-sub{
+  font-size: 12px;
+  color: var(--sit-ink-faint);
+  margin-top: 6px;
+  line-height: 1.3;
+}
+.sit-progress-track{
+  margin-top: 10px;
+  height: 4px;
+  background: var(--sit-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sit-progress-fill{
+  height: 100%;
+  background: var(--sit-accent);
+  border-radius: 2px;
+  transition: width .2s ease;
+}
+
+/* ===== TOOLBAR ===== */
+.sit-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.sit-month-nav{
+  display:flex;
+  align-items:center;
+  gap: 4px;
+  background: var(--sit-surface);
+  border: 1px solid var(--sit-line);
+  border-radius: 12px;
+  padding: 4px;
+}
+.sit-nav-btn{
+  width: 34px;
+  height: 34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  color: var(--sit-ink-soft);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background .15s ease, color .15s ease;
+}
+.sit-nav-btn:hover{ background: var(--sit-bg); color: var(--sit-ink); }
+.sit-nav-btn:focus-visible{ outline: 2px solid var(--sit-accent); outline-offset: 1px; }
+.sit-month-label{
+  font-size: 14.5px;
+  font-weight: 600;
+  padding: 0 12px;
+  min-width: 130px;
+  text-align: center;
+}
+.sit-toolbar-actions{
+  display:flex;
+  gap: 8px;
+}
+.sit-btn{
+  font-size: 13.5px;
+  font-weight: 500;
+  background: var(--sit-surface);
+  border: 1px solid var(--sit-line);
+  color: var(--sit-ink-soft);
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+  display:flex;
+  align-items:center;
+  gap: 6px;
+  line-height: 1.2;
+}
+.sit-btn:hover{ border-color: var(--sit-ink-faint); color: var(--sit-ink); }
+.sit-btn:focus-visible{ outline: 2px solid var(--sit-accent); outline-offset: 2px; }
+.sit-btn-today{
+  color: var(--sit-accent);
+  border-color: var(--sit-accent-bg);
+  background: var(--sit-accent-bg);
+}
+.sit-btn-today:hover{ border-color: var(--sit-accent); color: var(--sit-accent); }
+
+/* ===== TABLE CARD ===== */
+.sit-table-card{
+  background: var(--sit-surface);
+  border: 1px solid var(--sit-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.sit-table{
+  width: 100%;
+  border-collapse: collapse;
+}
+.sit-table thead .sit-th{
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sit-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sit-line);
+}
+.sit-th.sit-col-num{ width: 40px; }
+.sit-th.sit-col-amount{ width: 140px; }
+.sit-th.sit-col-status{ width: 130px; }
+
+.sit-table tbody .sit-row{
+  border-bottom: 1px solid var(--sit-line);
+}
+.sit-table tbody .sit-row:last-child{ border-bottom: none; }
+.sit-td{
+  padding: 14px 20px;
+  vertical-align: middle;
+  font-size: 14px;
+}
+.sit-td.sit-col-num{
+  color: var(--sit-ink-faint);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sit-td.sit-col-date{
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sit-amount-wrap{
+  display:flex;
+  align-items:center;
+  gap: 4px;
+}
+.sit-amount-wrap .sit-peso{
+  font-size: 14px;
+  color: var(--sit-ink-faint);
+}
+.sit-amount-wrap.sit-has-value .sit-peso{ color: var(--sit-good); }
+.sit-amount-input{
+  width: 100px;
+  border: 1px solid var(--sit-line);
+  border-radius: 8px;
+  background: var(--sit-bg);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--sit-ink);
+  padding: 7px 10px;
+  margin: 0;
+}
+.sit-amount-input:focus{
+  outline: none;
+  border-color: var(--sit-accent);
+  background: var(--sit-surface);
+}
+.sit-amount-input::-webkit-outer-spin-button,
+.sit-amount-input::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sit-status-badge{
+  display:inline-flex;
+  align-items:center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--sit-pending-bg);
+  color: var(--sit-pending);
+  cursor: pointer;
+  line-height: 1.2;
+  border: none;
+}
+.sit-status-badge.sit-received{
+  background: var(--sit-good-bg);
+  color: var(--sit-good);
+}
+
+.sit-note-input{
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--sit-ink);
+  padding: 7px 10px;
+  margin: 0;
+}
+.sit-note-input::placeholder{ color: var(--sit-ink-faint); }
+.sit-note-input:hover{ background: var(--sit-bg); }
+.sit-note-input:focus{
+  outline: none;
+  border-color: var(--sit-line);
+  background: var(--sit-bg);
+}
+
+.sit-table-foot{
+  display:flex;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--sit-bg);
+  border-top: 1px solid var(--sit-line);
+  font-size: 13px;
+  color: var(--sit-ink-soft);
+}
+.sit-table-foot strong{ color: var(--sit-ink); font-weight: 700; }
+
+/* ==========================================================
+   RESPONSIVE — tablet
+   ========================================================== */
+@media (max-width: 900px){
+  .sit-page{ padding: 32px 20px 64px; }
+  .sit-summary{
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ==========================================================
+   RESPONSIVE — small tablet / large phone
+   ========================================================== */
+@media (max-width: 720px){
+  .sit-th, .sit-td{ padding: 12px 14px; }
+  .sit-col-num{ display:none; }
+  .sit-month-label{ min-width: 100px; }
+
+  .sit-toolbar{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sit-month-nav{
+    justify-content: center;
+  }
+  .sit-toolbar-actions{
+    justify-content: stretch;
+  }
+  .sit-toolbar-actions .sit-btn{
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* ==========================================================
+   RESPONSIVE — mobile
+   Table becomes a stacked list of cards. Each row turns into
+   a card; each cell becomes a labeled line using ::before with
+   the cell's data-label attribute (set in the component).
+   ========================================================== */
+@media (max-width: 640px){
+  .sit-page{ padding: 24px 14px 56px; }
+
+  .sit-title{ font-size: 22px; }
+  .sit-subtitle{ font-size: 13px; }
+
+  .sit-summary{
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+  }
+  .sit-summary-cell{ padding: 16px; }
+  .sit-summary-cell .sit-value{ font-size: 20px; }
+
+  .sit-toolbar-actions{
+    flex-wrap: wrap;
+  }
+  .sit-toolbar-actions .sit-btn{
+    min-width: 30%;
+  }
+
+  /* ---- table -> card list ---- */
+  .sit-table-card{ border-radius: 14px; }
+  .sit-table, .sit-table thead, .sit-table tbody{
+    display: block;
+    width: 100%;
+  }
+  .sit-table thead{
+    /* hide header row visually but keep for screen readers */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .sit-table tbody .sit-row{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "date   status"
+      "amount amount"
+      "notes  notes";
+    gap: 8px 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--sit-line);
+  }
+  .sit-td{
+    padding: 0;
+    display: block;
+  }
+  .sit-td::before{
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sit-ink-faint);
+    margin-bottom: 4px;
+  }
+  .sit-td.sit-col-num{ display: none; }
+  .sit-td.sit-col-date{
+    grid-area: date;
+    font-size: 15px;
+  }
+  .sit-td:has(.sit-status-badge){
+    grid-area: status;
+    text-align: right;
+  }
+  .sit-td:has(.sit-status-badge)::before{ text-align: right; }
+  .sit-td:has(.sit-amount-wrap){
+    grid-area: amount;
+  }
+  .sit-td:has(.sit-note-input){
+    grid-area: notes;
+  }
+  .sit-amount-input{ width: 100%; }
+
+  .sit-table-foot{
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .sit-app *{ transition: none !important; }
+}

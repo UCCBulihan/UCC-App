@@ -1,47 +1,65 @@
-import NavigationBar from '../../Home/NavigationBar/NavigationBar'
+
+import NavigationBar from '../../Home/NavigationBar/NavigationBar';
+import MembersTable from '../Pledgers/MembersTable/MembersTable';
+import MemberModal from '../Pledgers/./MemberModal/MemberModal';
+import PageHeader from '../Pledgers/./components/PageHeader';
+import MembersToolbar from '../Pledgers/./components/MembersToolbar';
+import Toast from '../Pledgers/./components/Toast';
+import { useMembers } from '../Pledgers/./usePledgeMembers';
 
 export default function AllMembers() {
+  const {
+    currentUser, members, filtered, search, filter,
+    modalOpen, modalMode, form, formError, toast, loading,
+    setSearch, setFilter,
+    openModal, openEditModal, closeModal,
+    handleFormChange, addMember, editMember,
+    archiveMember,
+  } = useMembers();
+
   return (
     <div className="app-layout">
       <NavigationBar />
-      <main className="main-content" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '80vh'
-      }}>
-        <div style={{ textAlign: 'center', maxWidth: '420px', padding: '2.5rem 2rem' }}>
+      <main className="main-content">
+        <div className="page">
 
-          <div style={{
-            width: '96px', height: '96px',
-            margin: '0 auto 2rem',
-            background: '#f5f5f5',
-            borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid #e0e0e0'
-          }}>
-            <i className="fas fa-tools" style={{ fontSize: '40px', color: '#999' }} />  
-          </div>
+          <PageHeader
+            memberCount={members.length}
+            onAddMember={openModal}
+          />
 
-          <h1 style={{ fontSize: '22px', fontWeight: 500, margin: '0 0 0.75rem' }}>
-            Page unavailable
-          </h1>
+          <MembersToolbar
+            search={search}
+            filter={filter}
+            onSearchChange={setSearch}
+            onFilterChange={setFilter}
+          />
 
-          <p style={{ fontSize: '15px', color: '#666', lineHeight: 1.7, margin: '0 0 2rem' }}>
-            This section is currently under construction. We're working on it and it will be available soon.
-          </p>
-
-          <button onClick={() => window.history.back()} style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '10px 20px', fontSize: '14px',
-            borderRadius: '8px', cursor: 'pointer',
-            background: 'white', border: '1px solid #ccc'
-          }}>
-            ← Go back
-          </button>
+          <MembersTable
+            members={members}
+            filtered={filtered}
+            loading={loading}
+            onArchive={archiveMember}
+            onEdit={openEditModal}
+          />
 
         </div>
+
+        <MemberModal
+          isOpen={modalOpen}
+          mode={modalMode}
+          form={form}
+          formError={formError}
+          currentUser={currentUser}
+          onClose={closeModal}
+          onFormChange={handleFormChange}
+          showPledgerToggle={modalMode !== 'edit'}  
+          onSubmit={modalMode === 'edit' ? editMember : addMember}
+        />
+
+        <Toast message={toast} />
+
       </main>
     </div>
-  )
+  );
 }

@@ -58,6 +58,10 @@ export default function ManagePledgersModal({
           });
         }
       });
+      list.sort((a, b) => {
+              if (a.isPledger !== b.isPledger) return a.isPledger ? -1 : 1;
+              return a.name.localeCompare(b.name);
+            });
 
       setMembers(list);
     } catch (err: any) {

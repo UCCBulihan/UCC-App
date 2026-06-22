@@ -15,12 +15,14 @@ interface Props {
   formError: string;
   currentUser: string;
   onClose: () => void;
+  showPledgerToggle?: boolean; 
   onFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
 }
 
 export default function MemberModal({
   isOpen, mode, form, formError, currentUser,
+  showPledgerToggle = true,
   onClose, onFormChange, onSubmit
 }: Props) {
 
@@ -67,7 +69,6 @@ export default function MemberModal({
           <div className="field">
             <label htmlFor="firstName">First Name <span className="req">*</span></label>
             <div className="input-wrap">
-              {/* <i className="fa-regular fa-id-card icon" aria-hidden="true" /> */}
               <input type="text" id="firstName" placeholder="e.g. John"
                 value={form.firstName} onChange={onFormChange} />
             </div>
@@ -75,7 +76,6 @@ export default function MemberModal({
           <div className="field">
             <label htmlFor="lastName">Last Name <span className="req">*</span></label>
             <div className="input-wrap">
-              {/* <i className="fa-regular fa-id-card icon" aria-hidden="true" /> */}
               <input type="text" id="lastName" placeholder="e.g. Smith"
                 value={form.lastName} onChange={onFormChange} />
             </div>
@@ -94,7 +94,6 @@ export default function MemberModal({
         <div className="field">
           <label>{isEdit ? 'Modified By' : 'Added By'}</label>
           <div className="input-wrap" style={{ opacity: 0.7 }}>
-            <i className="fa-solid fa-user-shield icon" aria-hidden="true" />
             <input
               type="text"
               value={currentUser}
@@ -104,20 +103,22 @@ export default function MemberModal({
           </div>
         </div>
 
-        <label className="toggle-field" htmlFor="isPledger">
-          <div className="toggle-label">
-            <i className="fa-solid fa-hand-holding-heart" aria-hidden="true" />
-            <div>
-              <div className="toggle-text">Pledger</div>
-              <div className="toggle-desc">Mark this member as a pledger</div>
+        {showPledgerToggle && (
+          <label className="toggle-field" htmlFor="isPledger">
+            <div className="toggle-label">
+              <i className="fa-solid fa-hand-holding-heart" aria-hidden="true" />
+              <div>
+                <div className="toggle-text">Pledger</div>
+                <div className="toggle-desc">Mark this member as a pledger</div>
+              </div>
             </div>
-          </div>
-          <div className="toggle-switch">
-            <input type="checkbox" id="isPledger"
-              checked={form.isPledger} onChange={onFormChange} />
-            <span className="toggle-slider"></span>
-          </div>
-        </label>
+            <div className="toggle-switch">
+              <input type="checkbox" id="isPledger"
+                checked={form.isPledger} onChange={onFormChange} />
+              <span className="toggle-slider"></span>
+            </div>
+          </label>
+        )}
 
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>

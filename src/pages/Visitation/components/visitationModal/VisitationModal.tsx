@@ -6,6 +6,8 @@ import type {
   VisitStatus,
   VisitType,
 } from '../visitationTypes/visitationTypes';
+import Dropdown from '../dropdown/Dropdown';
+import MultiSelectDropdown from '../dropdown/MultiSelectDropdown';
 
 interface VisitationModalProps {
   isOpen: boolean;
@@ -18,9 +20,9 @@ interface VisitationModalProps {
 }
 
 const emptyForm: NewVisitationInput = {
-  memberVisited: '',
+  memberVisited: [],
   visitDate: '',
-  visitedBy: '',
+  visitedBy: [],
   location: '',
   visitType: '',
   status: '',
@@ -30,6 +32,10 @@ const emptyForm: NewVisitationInput = {
 
 const ERROR_COLOR = '#e24b4a';
 const ERROR_BG    = '#fff5f5';
+
+const LOCATION_OPTIONS = ['Home', 'Hospital', 'Church', 'Office', 'Other'];
+const VISIT_TYPE_OPTIONS = ['General Visit', 'Pastoral', 'Sick Visit', 'Welcome', 'Follow-up Visit'];
+const STATUS_OPTIONS = ['Scheduled', 'Completed', 'Cancelled'];
 
 export default function VisitationModal({
   isOpen,
@@ -58,7 +64,10 @@ export default function VisitationModal({
 
   if (!isOpen) return null;
 
-  const availableVisitors = visitors.filter((v) => v !== form.memberVisited);
+  // A person can't be both a visited member and a visitor on the same record,
+  // so each list excludes whatever is already picked in the other.
+  const availableVisitors = visitors.filter((v) => !form.memberVisited.includes(v));
+  const availableMembers  = members.filter((m) => !form.visitedBy.includes(m));
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) handleClose();
@@ -72,13 +81,16 @@ export default function VisitationModal({
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
-    if (!form.memberVisited) newErrors.memberVisited = 'Member Visited is required.';
-    if (!form.visitedBy)     newErrors.visitedBy     = 'Visited By is required.';
-    if (!form.visitDate)     newErrors.visitDate      = 'Visit Date is required.';
-    if (!form.status)        newErrors.status         = 'Status is required.';
-    if (form.memberVisited && form.visitedBy && form.memberVisited === form.visitedBy) {
-      newErrors.visitedBy = 'Visitor cannot be the same as the member being visited.';
+    if (form.memberVisited.length === 0) newErrors.memberVisited = 'At least one member visited is required.';
+    if (form.visitedBy.length === 0)     newErrors.visitedBy     = 'At least one visitor is required.';
+    if (!form.visitDate)                 newErrors.visitDate     = 'Visit Date is required.';
+    if (!form.status)                    newErrors.status        = 'Status is required.';
+
+    const overlap = form.memberVisited.filter((m) => form.visitedBy.includes(m));
+    if (overlap.length > 0) {
+      newErrors.visitedBy = 'A person cannot be both a visitor and a member visited.';
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -94,22 +106,42 @@ export default function VisitationModal({
     setErrors({});
   }
 
-  function updateField<K extends keyof NewVisitationInput>(key: K, value: NewVisitationInput[K]) {
-    if (key === 'memberVisited' && value === form.visitedBy) {
-      setForm((prev) => ({ ...prev, memberVisited: value as string, visitedBy: '' }));
-    } else {
-      setForm((prev) => ({ ...prev, [key]: value }));
-    }
+  function updateMemberVisited(values: string[]) {
+    setForm((prev) => ({
+      ...prev,
+      memberVisited: values,
+      visitedBy: prev.visitedBy.filter((v) => !values.includes(v)),
+    }));
     setErrors((prev) => {
       const next = { ...prev };
-      delete next[key as string];
-      if (key === 'memberVisited') delete next.visitedBy;
+      delete next.memberVisited;
+      delete next.visitedBy;
       return next;
     });
   }
 
-  const fieldBorder = (hasError: boolean): React.CSSProperties =>
-    hasError ? { borderColor: ERROR_COLOR, background: ERROR_BG } : {};
+  function updateVisitedBy(values: string[]) {
+    setForm((prev) => ({
+      ...prev,
+      visitedBy: values,
+      memberVisited: prev.memberVisited.filter((m) => !values.includes(m)),
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.visitedBy;
+      delete next.memberVisited;
+      return next;
+    });
+  }
+
+  function updateField<K extends keyof NewVisitationInput>(key: K, value: NewVisitationInput[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key as string];
+      return next;
+    });
+  }
 
   const sectionLabel: React.CSSProperties = {
     fontSize: '11px',
@@ -168,40 +200,38 @@ export default function VisitationModal({
           <p style={sectionLabel}>Visit Information</p>
 
           {/* Row 1: Member Visited + Visited By */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-            <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '14px' }}>
+            <div style={{ minWidth: 0 }}>
               <label style={label}>
-                Member Visited <span style={{ color: ERROR_COLOR }}>*</span>
+                Member(s) Visited <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <MultiSelectDropdown
                 value={form.memberVisited}
-                onChange={(e) => updateField('memberVisited', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.memberVisited) }}
-              >
-                <option value="">-- Select Member --</option>
-                {members.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+                onChange={updateMemberVisited}
+                options={availableMembers}
+                placeholder="-- Select Member(s) --"
+                hasError={!!errors.memberVisited}
+              />
               {errors.memberVisited && <p style={errorText}>{errors.memberVisited}</p>}
             </div>
 
-            <div>
+            <div style={{ minWidth: 0 }}>
               <label style={label}>
                 Visited By <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <MultiSelectDropdown
                 value={form.visitedBy}
-                onChange={(e) => updateField('visitedBy', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.visitedBy) }}
-              >
-                <option value="">-- Select Visitor --</option>
-                {availableVisitors.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+                onChange={updateVisitedBy}
+                options={availableVisitors}
+                placeholder="-- Select Visitor(s) --"
+                hasError={!!errors.visitedBy}
+              />
               {errors.visitedBy && <p style={errorText}>{errors.visitedBy}</p>}
             </div>
           </div>
 
           {/* Row 2: Visit Date + Location */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '14px' }}>
             <div>
               <label style={label}>
                 Visit Date <span style={{ color: ERROR_COLOR }}>*</span>
@@ -210,60 +240,50 @@ export default function VisitationModal({
                 type="date"
                 value={form.visitDate}
                 onChange={(e) => updateField('visitDate', e.target.value)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.visitDate) }}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  fontSize: '13px',
+                  ...(errors.visitDate ? { borderColor: ERROR_COLOR, background: ERROR_BG } : {}),
+                }}
               />
               {errors.visitDate && <p style={errorText}>{errors.visitDate}</p>}
             </div>
 
             <div>
               <label style={label}>Location</label>
-              <select
+              <Dropdown
                 value={form.location}
-                onChange={(e) => updateField('location', e.target.value as VisitLocation)}
-                style={{ width: '100%', height: '38px', fontSize: '13px' }}
-              >
-                <option value="">-- Select Location --</option>
-                <option>Home</option>
-                <option>Hospital</option>
-                <option>Church</option>
-                <option>Office</option>
-                <option>Other</option>
-              </select>
+                onChange={(v) => updateField('location', v as VisitLocation)}
+                options={LOCATION_OPTIONS}
+                placeholder="-- Select Location --"
+              />
             </div>
           </div>
 
           {/* Row 3: Visit Type + Status */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', marginBottom: '20px' }}>
             <div>
               <label style={label}>Visit Type</label>
-              <select
+              <Dropdown
                 value={form.visitType}
-                onChange={(e) => updateField('visitType', e.target.value as VisitType)}
-                style={{ width: '100%', height: '38px', fontSize: '13px' }}
-              >
-                <option value="">-- Select Type --</option>
-                <option>General Visit</option>
-                <option>Pastoral</option>
-                <option>Sick Visit</option>
-                <option>Welcome</option>
-                <option>Follow-up Visit</option>
-              </select>
+                onChange={(v) => updateField('visitType', v as VisitType)}
+                options={VISIT_TYPE_OPTIONS}
+                placeholder="-- Select Type --"
+              />
             </div>
 
             <div>
               <label style={label}>
                 Status <span style={{ color: ERROR_COLOR }}>*</span>
               </label>
-              <select
+              <Dropdown
                 value={form.status}
-                onChange={(e) => updateField('status', e.target.value as VisitStatus)}
-                style={{ width: '100%', height: '38px', fontSize: '13px', ...fieldBorder(!!errors.status) }}
-              >
-                <option value="">-- Select Status --</option>
-                <option>Scheduled</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
-              </select>
+                onChange={(v) => updateField('status', v as VisitStatus)}
+                options={STATUS_OPTIONS}
+                placeholder="-- Select Status --"
+                hasError={!!errors.status}
+              />
               {errors.status && <p style={errorText}>{errors.status}</p>}
             </div>
           </div>

@@ -1,5 +1,4 @@
 
-
 import NavigationBar from '../NavigationBar/NavigationBar.tsx'
 import './home.css'
 

@@ -52,6 +52,7 @@ export default function Members() {
           form={form}
           formError={formError}
           currentUser={currentUser}
+          showPledgerToggle={true}
           onClose={closeModal}
           onFormChange={handleFormChange}
           onSubmit={modalMode === 'edit' ? editMember : addMember}
