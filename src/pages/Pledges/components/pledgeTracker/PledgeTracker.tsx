@@ -18,7 +18,9 @@ export default function PledgeTracker() {
     data, sundays,
     total, paidCount,
     years, handleAmount,
-    handleNote, exportCSV,
+    handleNote, commitAmount,
+    commitNote, rowStatus,
+    exportCSV,
     currentUser,
   } = usePledges(selectedUser, selectedUserName);
 
@@ -78,6 +80,9 @@ export default function PledgeTracker() {
         data={data}
         handleAmount={handleAmount}
         handleNote={handleNote}
+        commitAmount={commitAmount}
+        commitNote={commitNote}
+        rowStatus={rowStatus}
         selectedUser={selectedUser}
         canManage={canManage}
       />

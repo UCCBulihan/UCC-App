@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { auth, db } from '../../../../../../firebase/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, query, where, getDocs, Timestamp, doc, setDoc } from 'firebase/firestore';
@@ -9,6 +9,14 @@ import {
   MONTHS
 } from './PledgesUtils';
 
+// Bilang ng milliseconds na hihintayin pagkatapos ng huling keystroke
+// bago talaga isulat sa Firestore.
+const SAVE_DEBOUNCE_MS = 800;
+// Gaano katagal ipapakita ang "Saved" bago mawala.
+const SAVED_BADGE_MS = 1500;
+
+export type RowSaveStatus = 'saving' | 'saved' | 'error';
+
 export function usePledges(userId: number, userName: string) {
   const now = new Date();
 
@@ -16,6 +24,14 @@ export function usePledges(userId: number, userName: string) {
   const [curYear, setCurYear] = useState(now.getFullYear());
   const [data, setData] = useState<SundayTracker>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Status ng pag-save kada Sunday/day — para sa "Saving... / Saved / Failed" indicator
+  const [rowStatus, setRowStatus] = useState<Record<number, RowSaveStatus | undefined>>({});
+
+  // Naka-store dito yung mga pending debounce timer, keyed by "day_field" (hal. "10_amount")
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Naka-store dito yung mga timer na nag-clear ng "Saved" badge pagkatapos ng ilang segundo
+  const savedClearTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -26,9 +42,9 @@ export function usePledges(userId: number, userName: string) {
 
   useEffect(() => {
     if (!userId || !currentUser || !userName) {
-    setData({});
-    return;
-  }
+      setData({});
+      return;
+    }
 
     async function fetchPledges() {
       try {
@@ -61,7 +77,19 @@ export function usePledges(userId: number, userName: string) {
     }
 
     fetchPledges();
-  }, [userId, curMonth, curYear, currentUser, userName]); 
+  }, [userId, curMonth, curYear, currentUser, userName]);
+
+  // Kapag lumipat ng member/month/year, kanselahin ang lahat ng pending timer
+  // (save timers + saved-badge clear timers) at i-reset ang status indicators.
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimers.current).forEach(clearTimeout);
+      saveTimers.current = {};
+      Object.values(savedClearTimers.current).forEach(clearTimeout);
+      savedClearTimers.current = {};
+      setRowStatus({});
+    };
+  }, [userId, curMonth, curYear]);
 
   const sundays = getSundays(curMonth, curYear);
 
@@ -77,37 +105,104 @@ export function usePledges(userId: number, userName: string) {
     d => getAmount(d.getDate()) > 0
   ).length;
 
-  const handleAmount = async (day: number, value: string) => {
-    if (!userId || !userName) return; 
+  // ── Mga helper para sa indicator ──────────────────────────────────────────
+  function markSaving(day: number) {
+    if (savedClearTimers.current[day]) {
+      clearTimeout(savedClearTimers.current[day]);
+      delete savedClearTimers.current[day];
+    }
+    setRowStatus(prev => ({ ...prev, [day]: 'saving' }));
+  }
+
+  function markSaved(day: number) {
+    setRowStatus(prev => ({ ...prev, [day]: 'saved' }));
+    savedClearTimers.current[day] = setTimeout(() => {
+      setRowStatus(prev => {
+        const next = { ...prev };
+        delete next[day];
+        return next;
+      });
+      delete savedClearTimers.current[day];
+    }, SAVED_BADGE_MS);
+  }
+
+  function markError(day: number) {
+    setRowStatus(prev => ({ ...prev, [day]: 'error' }));
+  }
+
+  // ── Ito lang ang TANGING lugar na talagang sumusulat sa Firestore ─────────
+  const writeToFirestore = useCallback(
+    async (day: number, field: 'amount' | 'notes', value: string) => {
+      if (!userId || !userName) return;
+
+      const date = new Date(curYear, curMonth, day);
+      const docId = `${userId}_${curYear}_${curMonth}_${day}`;
+
+      const payload: Record<string, any> = {
+        name: userName,
+        userId,
+        dateAdded: Timestamp.fromDate(date),
+        dateModified: Timestamp.fromDate(new Date()),
+      };
+      if (field === 'amount') payload.amount = parseFloat(value) || 0;
+      if (field === 'notes') payload.notes = value;
+
+      try {
+        await setDoc(doc(db, 'PLEDGES', docId), payload, { merge: true });
+        markSaved(day);
+      } catch (err: any) {
+        console.error('save error:', err?.message);
+        markError(day);
+      }
+    },
+    [userId, userName, curYear, curMonth]
+  );
+
+  // Mag-schedule ng save (debounce). Ipinapakita na ang "Saving..." mula ngayon
+  // hanggang matapos ang actual na pagsulat, kaya honest ang feedback sa user.
+  function scheduleSave(day: number, field: 'amount' | 'notes', value: string) {
+    const key = `${day}_${field}`;
+    if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
+    markSaving(day);
+    saveTimers.current[key] = setTimeout(() => {
+      delete saveTimers.current[key];
+      writeToFirestore(day, field, value);
+    }, SAVE_DEBOUNCE_MS);
+  }
+
+  // I-save AGAD, kanselahin ang naghihintay na timer (ginagamit sa onBlur)
+  function flushSave(day: number, field: 'amount' | 'notes', value: string) {
+    const key = `${day}_${field}`;
+    if (saveTimers.current[key]) {
+      clearTimeout(saveTimers.current[key]);
+      delete saveTimers.current[key];
+    }
+    markSaving(day);
+    writeToFirestore(day, field, value);
+  }
+
+  // ── onChange: i-update lang ang screen, i-schedule ang save ───────────────
+  const handleAmount = (day: number, value: string) => {
+    if (!userId || !userName) return;
     setData(prev => ({ ...prev, [day]: { ...prev[day], amount: value } }));
-
-    const date = new Date(curYear, curMonth, day);
-    const docId = `${userId}_${curYear}_${curMonth}_${day}`;
-
-    await setDoc(doc(db, 'PLEDGES', docId), {
-      name: userName,
-      userId,
-      amount: parseFloat(value) || 0,
-      dateAdded: Timestamp.fromDate(date),
-      dateModified: Timestamp.fromDate(new Date()),
-    }, { merge: true });
+    scheduleSave(day, 'amount', value);
   };
 
-  const handleNote = async (day: number, value: string) => {
+  const handleNote = (day: number, value: string) => {
     if (!userId || !userName) return;
-
     setData(prev => ({ ...prev, [day]: { ...prev[day], notes: value } }));
+    scheduleSave(day, 'notes', value);
+  };
 
-    const date = new Date(curYear, curMonth, day);
-    const docId = `${userId}_${curYear}_${curMonth}_${day}`;
+  // ── onBlur: i-save agad, hindi na maghintay ng 800ms ──────────────────────
+  const commitAmount = (day: number, value: string) => {
+    if (!userId || !userName) return;
+    flushSave(day, 'amount', value);
+  };
 
-    await setDoc(doc(db, 'PLEDGES', docId), {
-      name: userName,
-      userId,
-      notes: value,
-      dateAdded: Timestamp.fromDate(date),
-      dateModified: Timestamp.fromDate(new Date()),
-    }, { merge: true });
+  const commitNote = (day: number, value: string) => {
+    if (!userId || !userName) return;
+    flushSave(day, 'notes', value);
   };
 
   const exportCSV = () => {
@@ -125,7 +220,10 @@ export function usePledges(userId: number, userName: string) {
     curYear, setCurYear,
     data,
     sundays, total, paidCount, years,
-    handleAmount, handleNote, exportCSV,
+    handleAmount, handleNote,
+    commitAmount, commitNote,
+    rowStatus,
+    exportCSV,
     currentUser,
   };
 }
