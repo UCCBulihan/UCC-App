@@ -586,7 +586,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 8px;
+  padding: 8px 8px;
   border-radius: var(--cal-radius-sm);
   transition: background 0.15s ease;
 }
@@ -611,6 +611,24 @@
   white-space: nowrap;
 }
 
+.calendar-manage-row-edit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cal-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--cal-radius-sm);
+  padding: 5px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.calendar-manage-row-edit:hover {
+  background: var(--cal-accent-soft);
+  color: var(--cal-accent);
+}
+
 .calendar-manage-row-delete {
   width: 26px;
   height: 26px;
@@ -630,6 +648,32 @@
 .calendar-manage-row-delete:hover {
   background: rgba(220, 38, 38, 0.1);
   color: var(--color-text-danger, #a32d2d);
+}
+
+/* Inline edit state — replaces the row with a compact form, kept inside
+   the same list rhythm so the list doesn't jump around. */
+
+.calendar-manage-row-editing {
+  padding: 12px 8px;
+  border-radius: var(--cal-radius-sm);
+  background: var(--cal-bg);
+}
+
+.calendar-manage-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.calendar-manage-edit-form .calendar-input {
+  font-size: 14px;
+}
+
+.calendar-manage-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* ---------- Delete confirmation ---------- */

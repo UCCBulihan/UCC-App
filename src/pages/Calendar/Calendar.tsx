@@ -1,8 +1,13 @@
 import {
   collection,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
@@ -58,14 +63,6 @@ const CATEGORY_COLORS = [
   { value: '#16a34a', label: 'Green' },
   { value: '#525252', label: 'Slate' },
 ] as const
-
-// Starter categories so the picker isn't empty on first load.
-// Replace with categories fetched from your backend if you have them.
-const INITIAL_CATEGORIES: Category[] = [
-  { id: 'cat-meeting', name: 'Meeting', color: '#0b6e64' },
-  { id: 'cat-event', name: 'Event', color: '#2563eb' },
-  { id: 'cat-personal', name: 'Personal', color: '#d97706' },
-]
 
 function createEmptyDraft(initialDate: Date, defaultCategoryId: string | null): NewActivityDraft {
   const key = toKey(initialDate)
@@ -130,15 +127,23 @@ export default function Calendar() {
   const [holidays, setHolidays] = useState<Record<string, Holiday>>({})
   const [holidaysError, setHolidaysError] = useState(false)
   const [activitiesByDate, setActivitiesByDate] = useState<Record<string, Activity[]>>({})
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES)
+  const [categories, setCategories] = useState<Category[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [draft, setDraft] = useState<NewActivityDraft>(() => createEmptyDraft(today, INITIAL_CATEGORIES[0]?.id ?? null))
+  const [draft, setDraft] = useState<NewActivityDraft>(() => createEmptyDraft(today, null))
   const [formError, setFormError] = useState<string | null>(null)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [categoryModalView, setCategoryModalView] = useState<'create' | 'manage'>('create')
   const [categoryDraft, setCategoryDraft] = useState<NewCategoryDraft>(createEmptyCategoryDraft)
   const [categoryFormError, setCategoryFormError] = useState<string | null>(null)
   const [categoryPendingDelete, setCategoryPendingDelete] = useState<Category | null>(null)
+
+  // Inline edit state for the manage-categories list. Only one row can be
+  // in edit mode at a time; editDraft holds the in-progress name/color
+  // until the user saves or cancels.
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<NewCategoryDraft>(createEmptyCategoryDraft)
+  const [editFormError, setEditFormError] = useState<string | null>(null)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   const days = useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor])
   const year = monthAnchor.getFullYear()
@@ -171,33 +176,71 @@ export default function Calendar() {
     }
   }, [year])
 
+  // Scoped to the visible month only — re-subscribes whenever the user
+  // navigates to a different month, instead of pulling every activity
+  // ever created. 'date' is stored as 'YYYY-MM-DD', so a string range
+  // query lines up correctly with calendar order.
   useEffect(() => {
-  const unsubscribe = onSnapshot(
-    collection(db, "CALENDAR_EVENTS"),
-    (snapshot) => {
+    const monthStart = toKey(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1))
+    const monthEnd = toKey(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0))
 
-      const events: Record<string, Activity[]> = {};
+    const activitiesQuery = query(
+      collection(db, "CALENDAR_EVENTS"),
+      where("date", ">=", monthStart),
+      where("date", "<=", monthEnd),
+    )
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+    const unsubscribe = onSnapshot(
+      activitiesQuery,
+      (snapshot) => {
 
-        if (!events[data.date]) {
-          events[data.date] = [];
-        }
+        const events: Record<string, Activity[]> = {};
 
-        events[data.date].push({
-          time: data.time,
-          title: data.title,
-          categoryId: data.categoryId
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+
+          if (!events[data.date]) {
+            events[data.date] = [];
+          }
+
+          events[data.date].push({
+            time: data.time,
+            title: data.title,
+            categoryId: data.categoryId
+          });
         });
-      });
 
-      setActivitiesByDate(events);
-    }
-  );
+        setActivitiesByDate(events);
+      }
+    );
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, [monthAnchor]);
+
+  // Categories now live in Firestore so they persist across reloads and
+  // across devices, the same way activities already do.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "CATEGORIES"),
+      (snapshot) => {
+        const next: Category[] = []
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data()
+          next.push({
+            id: docSnap.id,
+            name: data.name,
+            color: data.color,
+          })
+        })
+        // Keep a stable order so the chip/swatch rows don't jump around
+        // every time someone edits an unrelated category.
+        next.sort((a, b) => a.name.localeCompare(b.name))
+        setCategories(next)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [])
 
   // Combine a holiday (if any) with that day's scheduled activities.
   function getDayItems(dateKey: string): Activity[] {
@@ -266,12 +309,13 @@ export default function Calendar() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
       if (categoryPendingDelete) setCategoryPendingDelete(null)
+      else if (editingCategoryId) cancelEditCategory()
       else if (isCategoryModalOpen) setIsCategoryModalOpen(false)
       else setIsModalOpen(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isModalOpen, isCategoryModalOpen, categoryPendingDelete])
+  }, [isModalOpen, isCategoryModalOpen, categoryPendingDelete, editingCategoryId])
 
   function goToPrevMonth() {
     setMonthAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -301,6 +345,7 @@ export default function Calendar() {
     setCategoryFormError(null)
     setCategoryModalView('create')
     setCategoryPendingDelete(null)
+    cancelEditCategory()
     setIsCategoryModalOpen(true)
   }
 
@@ -308,15 +353,18 @@ export default function Calendar() {
     setCategoryFormError(null)
     setCategoryPendingDelete(null)
     setCategoryModalView('manage')
+    cancelEditCategory()
     setIsCategoryModalOpen(true)
   }
 
   function closeCategoryModal() {
     setIsCategoryModalOpen(false)
     setCategoryPendingDelete(null)
+    cancelEditCategory()
   }
 
   function requestDeleteCategory(category: Category) {
+    if (editingCategoryId === category.id) cancelEditCategory()
     setCategoryPendingDelete(category)
   }
 
@@ -324,25 +372,22 @@ export default function Calendar() {
     setCategoryPendingDelete(null)
   }
 
-  function confirmDeleteCategory() {
+  async function confirmDeleteCategory() {
     if (!categoryPendingDelete) return
     const deletedId = categoryPendingDelete.id
 
-    setCategories((prev) => prev.filter((c) => c.id !== deletedId))
+    try {
+      await deleteDoc(doc(db, "CATEGORIES", deletedId))
+    } catch (err) {
+      // If the delete fails, keep the confirmation dialog state so the
+      // user can see something went wrong rather than silently no-op-ing.
+      setCategoryFormError('Could not delete category. Please try again.')
+      return
+    }
 
-    // Activities that referenced the deleted category fall back to
-    // uncategorized rather than disappearing or pointing at a dangling id.
-    setActivitiesByDate((prev) => {
-      const next: Record<string, Activity[]> = {}
-      Object.entries(prev).forEach(([dateKey, activities]) => {
-        next[dateKey] = activities.map((activity) =>
-          activity.categoryId === deletedId ? { ...activity, categoryId: undefined } : activity,
-        )
-      })
-      return next
-    })
-
-    // If the activity form currently has this category selected, clear it too.
+    // If the activity form currently has this category selected, clear it.
+    // Existing saved activities keep their categoryId; since that id no
+    // longer resolves to a category, they'll just render as uncategorized.
     if (draft.categoryId === deletedId) {
       updateDraft('categoryId', null)
     }
@@ -354,7 +399,7 @@ export default function Calendar() {
     setCategoryDraft((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handleSubmitCategory(event: FormEvent) {
+  async function handleSubmitCategory(event: FormEvent) {
     event.preventDefault()
 
     const trimmedName = categoryDraft.name.trim()
@@ -367,16 +412,66 @@ export default function Calendar() {
       return
     }
 
-    const newCategory: Category = {
-      id: `cat-${Date.now()}`,
-      name: trimmedName,
-      color: categoryDraft.color,
+    try {
+      const newDocRef = await addDoc(collection(db, "CATEGORIES"), {
+        name: trimmedName,
+        color: categoryDraft.color,
+        createdAt: serverTimestamp(),
+      })
+      // Immediately select the freshly-created category on the activity form.
+      updateDraft('categoryId', newDocRef.id)
+      setIsCategoryModalOpen(false)
+    } catch (err) {
+      setCategoryFormError('Could not save category. Please try again.')
+    }
+  }
+
+  function startEditCategory(category: Category) {
+    setCategoryPendingDelete(null)
+    setEditingCategoryId(category.id)
+    setEditDraft({ name: category.name, color: category.color })
+    setEditFormError(null)
+  }
+
+  function cancelEditCategory() {
+    setEditingCategoryId(null)
+    setEditDraft(createEmptyCategoryDraft())
+    setEditFormError(null)
+    setIsSavingEdit(false)
+  }
+
+  function updateEditDraft<K extends keyof NewCategoryDraft>(key: K, value: NewCategoryDraft[K]) {
+    setEditDraft((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function saveEditCategory(categoryId: string) {
+    const trimmedName = editDraft.name.trim()
+    if (!trimmedName) {
+      setEditFormError('Category name is required.')
+      return
+    }
+    if (
+      categories.some(
+        (c) => c.id !== categoryId && c.name.toLowerCase() === trimmedName.toLowerCase(),
+      )
+    ) {
+      setEditFormError('A category with this name already exists.')
+      return
     }
 
-    setCategories((prev) => [...prev, newCategory])
-    // Immediately select the freshly-created category on the activity form.
-    updateDraft('categoryId', newCategory.id)
-    setIsCategoryModalOpen(false)
+    setIsSavingEdit(true)
+    try {
+      // categoryId on activities is unaffected — they just look up the
+      // (now updated) name/color the next time they render.
+      await updateDoc(doc(db, "CATEGORIES", categoryId), {
+        name: trimmedName,
+        color: editDraft.color,
+      })
+      cancelEditCategory()
+    } catch (err) {
+      setIsSavingEdit(false)
+      setEditFormError('Could not save changes. Please try again.')
+    }
   }
 
   function updateDraft<K extends keyof NewActivityDraft>(key: K, value: NewActivityDraft[K]) {
@@ -418,21 +513,21 @@ export default function Calendar() {
     }
 
     for (const key of dateKeys) {
-  await addDoc(
-    collection(db, "CALENDAR_EVENTS"),
-    {
-      title: trimmedTitle,
-      date: key,
-      time: draft.isWholeDay
-        ? "Whole day"
-        : formatTimeLabel(draft.startTime),
-      categoryId: draft.categoryId,
-      createdAt: serverTimestamp()
+      await addDoc(
+        collection(db, "CALENDAR_EVENTS"),
+        {
+          title: trimmedTitle,
+          date: key,
+          time: draft.isWholeDay
+            ? "Whole day"
+            : formatTimeLabel(draft.startTime),
+          categoryId: draft.categoryId,
+          createdAt: serverTimestamp()
+        }
+      );
     }
-  );
-}
 
-setIsModalOpen(false);
+    setIsModalOpen(false);
   }
 
   return (
@@ -791,6 +886,65 @@ setIsModalOpen(false);
                         <ul className="calendar-manage-list">
                           {categories.map((cat) => {
                             const usageCount = countActivitiesUsingCategory(cat.id)
+                            const isEditing = editingCategoryId === cat.id
+
+                            if (isEditing) {
+                              return (
+                                <li key={cat.id} className="calendar-manage-row calendar-manage-row-editing">
+                                  <div className="calendar-manage-edit-form">
+                                    <input
+                                      type="text"
+                                      className="calendar-input"
+                                      value={editDraft.name}
+                                      onChange={(e) => updateEditDraft('name', e.target.value)}
+                                      placeholder="Category name"
+                                      autoFocus
+                                    />
+                                    <div className="calendar-swatch-row">
+                                      {CATEGORY_COLORS.map((c) => {
+                                        const isColorSelected = editDraft.color === c.value
+                                        return (
+                                          <button
+                                            key={c.value}
+                                            type="button"
+                                            className={
+                                              isColorSelected ? 'calendar-swatch calendar-swatch-selected' : 'calendar-swatch'
+                                            }
+                                            style={{ background: c.value, '--cal-swatch-color': c.value } as CSSProperties}
+                                            onClick={() => updateEditDraft('color', c.value)}
+                                            aria-label={c.label}
+                                            aria-pressed={isColorSelected}
+                                            title={c.label}
+                                          >
+                                            {isColorSelected && <span className="calendar-swatch-check">✓</span>}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                    {editFormError && <p className="calendar-field-error">{editFormError}</p>}
+                                    <div className="calendar-manage-edit-actions">
+                                      <button
+                                        type="button"
+                                        className="calendar-btn calendar-btn-ghost"
+                                        onClick={cancelEditCategory}
+                                        disabled={isSavingEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="calendar-btn calendar-btn-primary"
+                                        onClick={() => saveEditCategory(cat.id)}
+                                        disabled={isSavingEdit}
+                                      >
+                                        {isSavingEdit ? 'Saving…' : 'Save'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </li>
+                              )
+                            }
+
                             return (
                               <li key={cat.id} className="calendar-manage-row">
                                 <span className="calendar-category-chip-dot" style={{ background: cat.color }} />
@@ -800,6 +954,15 @@ setIsModalOpen(false);
                                     {usageCount} {usageCount === 1 ? 'activity' : 'activities'}
                                   </span>
                                 )}
+                                <button
+                                  type="button"
+                                  className="calendar-manage-row-edit"
+                                  onClick={() => startEditCategory(cat)}
+                                  aria-label={`Edit ${cat.name}`}
+                                  title={`Edit ${cat.name}`}
+                                >
+                                  Edit
+                                </button>
                                 <button
                                   type="button"
                                   className="calendar-manage-row-delete"
@@ -823,6 +986,7 @@ setIsModalOpen(false);
                         onClick={() => {
                           setCategoryDraft(createEmptyCategoryDraft())
                           setCategoryFormError(null)
+                          cancelEditCategory()
                           setCategoryModalView('create')
                         }}
                       >
