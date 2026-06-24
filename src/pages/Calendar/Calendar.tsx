@@ -1,3 +1,11 @@
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  onSnapshot
+} from "firebase/firestore";
+
+import { db } from "../../firebase/firebase";
 import { useEffect, useMemo, useState, type FormEvent, type CSSProperties } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import './calendar.css'
@@ -76,29 +84,6 @@ function createEmptyCategoryDraft(): NewCategoryDraft {
   return { name: '', color: CATEGORY_COLORS[0].value }
 }
 
-// Demo data — replace with activities fetched from your backend.
-// Keyed by date in 'YYYY-MM-DD' format. Used to seed local state below;
-// activities created via the "+ New activity" modal get merged in too.
-const INITIAL_ACTIVITIES: Record<string, Activity[]> = {
-  '2026-06-05': [
-    { time: '9:00 AM', title: 'Executive Meeting' },
-    { time: '2:00 PM', title: 'Project Planning Session' },
-  ],
-
-  '2026-06-12': [
-    { time: '8:00 AM', title: 'Leadership Development Camp' },
-  ],
-
-  '2026-06-18': [
-    { time: '10:00 AM', title: 'Community Outreach Program' },
-    { time: '3:00 PM', title: 'Team Building Event' },
-  ],
-
-  '2026-06-25': [
-    { time: '9:00 AM', title: 'Recognition & Awards Ceremony' },
-    { time: '1:00 PM', title: 'Annual General Meeting' },
-  ],
-}
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -144,7 +129,7 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [holidays, setHolidays] = useState<Record<string, Holiday>>({})
   const [holidaysError, setHolidaysError] = useState(false)
-  const [activitiesByDate, setActivitiesByDate] = useState<Record<string, Activity[]>>(INITIAL_ACTIVITIES)
+  const [activitiesByDate, setActivitiesByDate] = useState<Record<string, Activity[]>>({})
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [draft, setDraft] = useState<NewActivityDraft>(() => createEmptyDraft(today, INITIAL_CATEGORIES[0]?.id ?? null))
@@ -185,6 +170,34 @@ export default function Calendar() {
       cancelled = true
     }
   }, [year])
+
+  useEffect(() => {
+  const unsubscribe = onSnapshot(
+    collection(db, "CALENDAR_EVENTS"),
+    (snapshot) => {
+
+      const events: Record<string, Activity[]> = {};
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+
+        if (!events[data.date]) {
+          events[data.date] = [];
+        }
+
+        events[data.date].push({
+          time: data.time,
+          title: data.title,
+          categoryId: data.categoryId
+        });
+      });
+
+      setActivitiesByDate(events);
+    }
+  );
+
+  return () => unsubscribe();
+}, []);
 
   // Combine a holiday (if any) with that day's scheduled activities.
   function getDayItems(dateKey: string): Activity[] {
@@ -378,7 +391,7 @@ export default function Calendar() {
     return `${displayHour}:${minuteStr} ${period}`
   }
 
-  function handleSubmitActivity(event: FormEvent) {
+  async function handleSubmitActivity(event: FormEvent){
     event.preventDefault()
 
     const trimmedTitle = draft.title.trim()
@@ -404,21 +417,22 @@ export default function Calendar() {
       dateKeys.push(toKey(d))
     }
 
-    const newActivity: Activity = {
-      time: draft.isWholeDay ? 'Whole day' : formatTimeLabel(draft.startTime),
+    for (const key of dateKeys) {
+  await addDoc(
+    collection(db, "CALENDAR_EVENTS"),
+    {
       title: trimmedTitle,
-      ...(draft.categoryId ? { categoryId: draft.categoryId } : {}),
+      date: key,
+      time: draft.isWholeDay
+        ? "Whole day"
+        : formatTimeLabel(draft.startTime),
+      categoryId: draft.categoryId,
+      createdAt: serverTimestamp()
     }
+  );
+}
 
-    setActivitiesByDate((prev) => {
-      const next = { ...prev }
-      dateKeys.forEach((key) => {
-        next[key] = [...(next[key] ?? []), newActivity]
-      })
-      return next
-    })
-
-    setIsModalOpen(false)
+setIsModalOpen(false);
   }
 
   return (
