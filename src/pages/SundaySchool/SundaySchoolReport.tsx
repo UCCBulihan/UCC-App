@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import './sundaySchool.css'
+import './reports.css'
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
