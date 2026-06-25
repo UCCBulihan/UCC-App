@@ -1,20 +1,22 @@
-
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from '../Pledgers/MembersTable/MembersTable';
-import MemberModal from '../Pledgers/./MemberModal/MemberModal';
-import PageHeader from '../Pledgers/./components/PageHeader';
-import MembersToolbar from '../Pledgers/./components/MembersToolbar';
-import Toast from '../Pledgers/./components/Toast';
-import { useMembers } from '../Pledgers/./usePledgeMembers';
+import MemberModal from '../Pledgers/MemberModal/MemberModal';
+import PageHeader from '../Pledgers/components/PageHeader';
+import MembersToolbar from '../Pledgers/components/MembersToolbar';
+import Toast from '../Pledgers/components/Toast';
+import { useMembers } from '../Pledgers/usePledgeMembers';
 
 export default function AllMembers() {
   const {
-    currentUser, members, filtered, search, filter,
+    currentUser, members, filtered, paginated, search, filter,
     modalOpen, modalMode, form, formError, toast, loading,
     setSearch, setFilter,
     openModal, openEditModal, closeModal,
     handleFormChange, addMember, editMember,
     archiveMember,
+    pageSize, setPageSize,
+    currentPage, setCurrentPage,
+    totalPages,
   } = useMembers();
 
   return (
@@ -38,9 +40,15 @@ export default function AllMembers() {
           <MembersTable
             members={members}
             filtered={filtered}
+            paginated={paginated}
             loading={loading}
             onArchive={archiveMember}
             onEdit={openEditModal}
+            pageSize={pageSize}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageSizeChange={setPageSize}
+            onPageChange={setCurrentPage}
           />
 
         </div>
@@ -53,7 +61,7 @@ export default function AllMembers() {
           currentUser={currentUser}
           onClose={closeModal}
           onFormChange={handleFormChange}
-          showPledgerToggle={modalMode !== 'edit'}  
+          showPledgerToggle={modalMode !== 'edit'}
           onSubmit={modalMode === 'edit' ? editMember : addMember}
         />
 

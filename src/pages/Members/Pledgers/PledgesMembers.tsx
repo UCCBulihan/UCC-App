@@ -1,4 +1,5 @@
 import './pledgesmembers.css';
+import './pagination.css';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from './MembersTable/MembersTable';
 import MemberModal from './MemberModal/MemberModal';
@@ -9,12 +10,15 @@ import { useMembers } from './usePledgeMembers';
 
 export default function Members() {
   const {
-    currentUser, members, filtered, search, filter,
+    currentUser, members, filtered, paginated, search, filter,
     modalOpen, modalMode, form, formError, toast, loading,
     setSearch, setFilter,
     openModal, openEditModal, closeModal,
     handleFormChange, addMember, editMember,
     togglePledger, archiveMember,
+    pageSize, setPageSize,
+    currentPage, setCurrentPage,
+    totalPages,
   } = useMembers();
 
   return (
@@ -38,10 +42,16 @@ export default function Members() {
           <MembersTable
             members={members}
             filtered={filtered}
+            paginated={paginated}
             loading={loading}
             onTogglePledger={togglePledger}
             onArchive={archiveMember}
             onEdit={openEditModal}
+            pageSize={pageSize}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageSizeChange={setPageSize}
+            onPageChange={setCurrentPage}
           />
 
         </div>

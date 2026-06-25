@@ -48,6 +48,10 @@ export function useMembers() {
   const [loading, setLoading] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Pagination state ──
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, user => {
@@ -82,6 +86,11 @@ export function useMembers() {
     }
     fetchMembers();
   }, []);
+
+  // Reset to page 1 whenever search/filter/pageSize changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter, pageSize]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -202,24 +211,33 @@ export function useMembers() {
     }
   }
 
-const filtered = members
-  .filter((m: Member) => {
-    if (m.isArchived) return false;
-    const fullName = `${m.firstName} ${m.middleName} ${m.lastName}`.toLowerCase();
-    const matchSearch = fullName.includes(search.toLowerCase());
-    const matchFilter = filter === 'all'
-      || (filter === 'yes' && m.isPledger)
-      || (filter === 'no' && !m.isPledger);
-    return matchSearch && matchFilter;
-  })
-  .sort((a, b) => Number(b.isPledger) - Number(a.isPledger));
+  const filtered = members
+    .filter((m: Member) => {
+      if (m.isArchived) return false;
+      const fullName = `${m.firstName} ${m.middleName} ${m.lastName}`.toLowerCase();
+      const matchSearch = fullName.includes(search.toLowerCase());
+      const matchFilter = filter === 'all'
+        || (filter === 'yes' && m.isPledger)
+        || (filter === 'no' && !m.isPledger);
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => Number(b.isPledger) - Number(a.isPledger));
+
+  // ── Pagination derived values ──
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return {
-    currentUser, members, filtered, search, filter,
+    currentUser, members, filtered, paginated, search, filter,
     modalOpen, modalMode, form, formError, toast, loading,
     setSearch, setFilter,
     openModal, openEditModal, closeModal,
     handleFormChange, addMember, editMember,
     togglePledger, archiveMember,
+    // pagination
+    pageSize, setPageSize,
+    currentPage: safePage, setCurrentPage,
+    totalPages,
   };
 }

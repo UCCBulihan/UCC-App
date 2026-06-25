@@ -13,20 +13,32 @@ export interface Member {
 interface Props {
   members: Member[];
   filtered: Member[];
+  paginated?: Member[];           // optional — falls back to filtered if not provided
   loading: boolean;
   onTogglePledger?: (id: string, current: boolean) => void;
   onArchive: (id: string) => void;
-  onEdit: (member: Member) => void;  
+  onEdit: (member: Member) => void;
+  // pagination (all optional — omit to show all rows without controls)
+  pageSize?: number;
+  currentPage?: number;
+  totalPages?: number;
+  onPageSizeChange?: (size: number) => void;
+  onPageChange?: (page: number) => void;
 }
+
 function initials(m: Member) {
   return (m.firstName[0] || '') + (m.lastName[0] || '');
 }
 
 export default function MembersTable({
-  members, filtered, loading,
-  onTogglePledger, onArchive, onEdit
+  members = [], filtered = [], paginated, loading,
+  onTogglePledger, onArchive, onEdit,
+  pageSize, currentPage, totalPages,
+  onPageSizeChange, onPageChange,
 }: Props) {
   const colCount = onTogglePledger ? 5 : 4;
+  const rows = paginated ?? filtered;         // use paginated if provided, else all filtered
+  const hasPagination = !!onPageSizeChange;   // show footer controls only when wired up
 
   return (
     <div className="members-card">
@@ -48,7 +60,7 @@ export default function MembersTable({
                   <div className="empty-state"><p>Loading members…</p></div>
                 </td>
               </tr>
-            ) : filtered.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={colCount} className="empty-cell">
                   <div className="empty-state">
@@ -58,7 +70,7 @@ export default function MembersTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((m) => (
+              rows.map((m) => (
                 <tr key={m.id}>
                   <td>
                     <div className="member-cell">
@@ -104,8 +116,49 @@ export default function MembersTable({
           </tbody>
         </table>
       </div>
+
+      {/* ── Footer ── */}
       <div className="table-footer">
-        <span>Showing {filtered.length} of {members.length} member{members.length !== 1 ? 's' : ''}</span>
+        <div className="footer-left">
+          {hasPagination && onPageSizeChange && (
+            <div className="page-size-wrap">
+              <span className="page-size-label">Rows</span>
+              <select
+                value={pageSize}
+                onChange={e => onPageSizeChange(Number(e.target.value))}
+                className="page-size-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+              </select>
+            </div>
+          )}
+          <span>
+            {hasPagination && pageSize && currentPage
+              ? `Showing ${filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)} of ${filtered.length} member${filtered.length !== 1 ? 's' : ''}`
+              : `Showing ${filtered.length} of ${members.length} member${members.length !== 1 ? 's' : ''}`
+            }
+          </span>
+        </div>
+
+        {hasPagination && onPageChange && currentPage && totalPages && (
+          <div className="page-nav">
+            <button className="page-btn" onClick={() => onPageChange(1)} disabled={currentPage === 1} title="First page">
+              <i className="fa-solid fa-angles-left" />
+            </button>
+            <button className="page-btn" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} title="Previous page">
+              <i className="fa-solid fa-angle-left" />
+            </button>
+            <span className="page-indicator">{currentPage} / {totalPages}</span>
+            <button className="page-btn" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} title="Next page">
+              <i className="fa-solid fa-angle-right" />
+            </button>
+            <button className="page-btn" onClick={() => onPageChange(totalPages)} disabled={currentPage === totalPages} title="Last page">
+              <i className="fa-solid fa-angles-right" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
