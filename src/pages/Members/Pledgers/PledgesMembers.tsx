@@ -6,7 +6,7 @@ import MemberModal from './MemberModal/MemberModal';
 import PageHeader from './components/PageHeader';
 import MembersToolbar from './components/MembersToolbar';
 import Toast from './components/Toast';
-import { useMembers } from './usePledgeMembers';
+import { useMembers } from './useMembers';
 
 export default function Members() {
   const {

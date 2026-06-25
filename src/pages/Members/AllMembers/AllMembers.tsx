@@ -4,7 +4,7 @@ import MemberModal from '../Pledgers/MemberModal/MemberModal';
 import PageHeader from '../Pledgers/components/PageHeader';
 import MembersToolbar from '../Pledgers/components/MembersToolbar';
 import Toast from '../Pledgers/components/Toast';
-import { useMembers } from '../Pledgers/usePledgeMembers';
+import { useMembers } from '../Pledgers/useMembers';
 
 export default function AllMembers() {
   const {
