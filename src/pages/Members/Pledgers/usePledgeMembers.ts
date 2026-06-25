@@ -1,22 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useMembersStore } from '../useMembersStore';
 
-// ── Types & Helpers ───────────────────────────────────────────
-export interface Member {
-  id: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  userId: number;
-  isPledger: boolean;
-  addedBy: string;
-  dateAdded: string;
-  modifiedBy?: string;
-  modifiedDate?: string;
-  isArchived: boolean;
-}
+export type { Member } from '../useMembersStore';
 
 export interface FormState {
   firstName: string;
@@ -30,13 +18,18 @@ const emptyForm: FormState = {
 };
 
 function formatDate() {
-  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date().toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
 }
 
 // ── Hook ─────────────────────────────────────────────────────
 export function useMembers() {
+  // ── From global store (shared/cached) ──
+  const { members, loading, fetchIfNeeded, addMember: storeAdd, updateMember, removeMember } = useMembersStore();
+
+  // ── Local UI state (not shared, per-page) ──
   const [currentUser, setCurrentUser] = useState('');
-  const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -45,12 +38,14 @@ export function useMembers() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState('');
   const [toast, setToast] = useState('');
-  const [loading, setLoading] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Pagination state ──
+  // ── Pagination ──
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch on mount — skipped automatically if already cached
+  useEffect(() => { fetchIfNeeded(); }, [fetchIfNeeded]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -60,37 +55,8 @@ export function useMembers() {
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    async function fetchMembers() {
-      try {
-        const snapshot = await getDocs(collection(db, 'MEMBERS'));
-        const list: Member[] = snapshot.docs
-          .map(docSnap => {
-            const data = docSnap.data() as any;
-            return {
-              id: docSnap.id,
-              ...data,
-              isArchived: data.isArchived ?? false,
-              dateAdded: data.dateAdded?.toDate
-                ? data.dateAdded.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                : data.dateAdded ?? '',
-            };
-          })
-          .filter((m: Member) => !m.isArchived);
-        setMembers(list);
-      } catch (err: any) {
-        console.error('Fetch error:', err?.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchMembers();
-  }, []);
-
-  // Reset to page 1 whenever search/filter/pageSize changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, filter, pageSize]);
+  // Reset to page 1 on search/filter/pageSize change
+  useEffect(() => { setCurrentPage(1); }, [search, filter, pageSize]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -107,7 +73,7 @@ export function useMembers() {
     document.body.style.overflow = 'hidden';
   }
 
-  function openEditModal(member: Member) {
+  function openEditModal(member: ReturnType<typeof useMembersStore.getState>['members'][0]) {
     setForm({
       firstName: member.firstName,
       middleName: member.middleName,
@@ -128,18 +94,18 @@ export function useMembers() {
 
   function handleFormChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { id, value, type, checked } = e.target;
-    setForm((prev: FormState) => ({ ...prev, [id]: type === 'checkbox' ? checked : value }));
+    setForm(prev => ({ ...prev, [id]: type === 'checkbox' ? checked : value }));
   }
 
   async function addMember() {
-    const nextId = members.length > 0
-      ? Math.max(...members.map(m => m.userId)) + 1
-      : 1;
     const { firstName, lastName } = form;
     if (!firstName.trim() || !lastName.trim()) {
       setFormError('Please fill in all required fields.');
       return;
     }
+    const nextId = members.length > 0
+      ? Math.max(...members.map(m => m.userId)) + 1
+      : 1;
     try {
       const newMember = {
         firstName: firstName.trim(),
@@ -152,7 +118,8 @@ export function useMembers() {
         isArchived: false,
       };
       const docRef = await addDoc(collection(db, 'MEMBERS'), newMember);
-      setMembers((prev: Member[]) => [...prev, { id: docRef.id, ...newMember }]);
+      // Update store directly — no re-fetch needed
+      storeAdd({ id: docRef.id, ...newMember });
       closeModal();
       showToast('Member added successfully.');
     } catch (err: any) {
@@ -169,7 +136,7 @@ export function useMembers() {
     }
     if (!editingId) return;
     try {
-      const updated = {
+      const changes = {
         firstName: firstName.trim(),
         middleName: form.middleName.trim(),
         lastName: lastName.trim(),
@@ -177,10 +144,9 @@ export function useMembers() {
         modifiedBy: currentUser,
         modifiedDate: formatDate(),
       };
-      await updateDoc(doc(db, 'MEMBERS', editingId), updated);
-      setMembers((prev: Member[]) =>
-        prev.map(m => m.id === editingId ? { ...m, ...updated } : m)
-      );
+      await updateDoc(doc(db, 'MEMBERS', editingId), changes);
+      // Update store directly — no re-fetch needed
+      updateMember(editingId, changes);
       closeModal();
       showToast('Member updated successfully.');
     } catch (err: any) {
@@ -192,9 +158,7 @@ export function useMembers() {
   async function togglePledger(id: string, current: boolean) {
     try {
       await updateDoc(doc(db, 'MEMBERS', id), { isPledger: !current });
-      setMembers((prev: Member[]) =>
-        prev.map(m => m.id === id ? { ...m, isPledger: !current } : m)
-      );
+      updateMember(id, { isPledger: !current });
       showToast(`Member marked as ${!current ? 'Pledger' : 'Non-Pledger'}.`);
     } catch (err: any) {
       console.error('Update error:', err?.message);
@@ -204,26 +168,28 @@ export function useMembers() {
   async function archiveMember(id: string) {
     try {
       await updateDoc(doc(db, 'MEMBERS', id), { isArchived: true });
-      setMembers((prev: Member[]) => prev.filter(m => m.id !== id));
+      removeMember(id);
       showToast('Member archived.');
     } catch (err: any) {
       console.error('Archive error:', err?.message);
     }
   }
 
+  // ── Derived: filter + sort ──
   const filtered = members
-    .filter((m: Member) => {
+    .filter(m => {
       if (m.isArchived) return false;
       const fullName = `${m.firstName} ${m.middleName} ${m.lastName}`.toLowerCase();
       const matchSearch = fullName.includes(search.toLowerCase());
-      const matchFilter = filter === 'all'
-        || (filter === 'yes' && m.isPledger)
-        || (filter === 'no' && !m.isPledger);
+      const matchFilter =
+        filter === 'all' ||
+        (filter === 'yes' && m.isPledger) ||
+        (filter === 'no' && !m.isPledger);
       return matchSearch && matchFilter;
     })
     .sort((a, b) => Number(b.isPledger) - Number(a.isPledger));
 
-  // ── Pagination derived values ──
+  // ── Derived: pagination ──
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -235,7 +201,6 @@ export function useMembers() {
     openModal, openEditModal, closeModal,
     handleFormChange, addMember, editMember,
     togglePledger, archiveMember,
-    // pagination
     pageSize, setPageSize,
     currentPage: safePage, setCurrentPage,
     totalPages,
