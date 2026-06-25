@@ -42,11 +42,11 @@
 }
 
 /* ===== PAGE ===== */
-.sit-page{
-  max-width: 1040px;
+ .sit-page{
+  /* max-width: 1040px; */
   margin: 0 auto;
   padding: 40px 24px 80px;
-}
+} 
 
 /* ===== HEADER ===== */
 .sit-page-head{
@@ -221,11 +221,11 @@
 .sit-td.sit-col-num{
   color: var(--sit-ink-faint);
   font-size: 13px;
-  font-weight: 600;
+  /* font-weight: 600; */
 }
 .sit-td.sit-col-date{
   font-size: 14px;
-  font-weight: 600;
+  /* font-weight: 600; */
 }
 
 .sit-amount-wrap{
