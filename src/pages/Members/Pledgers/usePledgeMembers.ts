@@ -202,7 +202,8 @@ export function useMembers() {
     }
   }
 
-  const filtered = members.filter((m: Member) => {
+const filtered = members
+  .filter((m: Member) => {
     if (m.isArchived) return false;
     const fullName = `${m.firstName} ${m.middleName} ${m.lastName}`.toLowerCase();
     const matchSearch = fullName.includes(search.toLowerCase());
@@ -210,7 +211,8 @@ export function useMembers() {
       || (filter === 'yes' && m.isPledger)
       || (filter === 'no' && !m.isPledger);
     return matchSearch && matchFilter;
-  });
+  })
+  .sort((a, b) => Number(b.isPledger) - Number(a.isPledger));
 
   return {
     currentUser, members, filtered, search, filter,
