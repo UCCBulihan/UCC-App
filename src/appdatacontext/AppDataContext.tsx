@@ -9,8 +9,7 @@ import {
 } from 'react';
 import { collection, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth, db } from '../firebase/firebase'; // 👈 ADJUST THIS PATH if your structure differs
-
+import { auth, db } from '../firebase/firebase'; 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface Member {

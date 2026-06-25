@@ -1,298 +1,446 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { db } from '../../firebase/firebase' // adjust to your actual firebase.ts path
+import { collection, query, where, getDocs, Timestamp, doc, setDoc } from 'firebase/firestore'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import './sundaySchool.css'
 
-type SundayEntry = {
-  amount: string
-  received: boolean
-  note: string
+// ════════════════════════════════════════════════════════════════
+// Types
+// ════════════════════════════════════════════════════════════════
+
+interface SundayEntry {
+  amount?: string
+  received?: boolean
+  note?: string
 }
 
-type EntryStore = Record<string, SundayEntry>
+type SundayTracker = Record<number, SundayEntry> // keyed by day-of-month
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+export type RowSaveStatus = 'saving' | 'saved' | 'error'
+
+// ════════════════════════════════════════════════════════════════
+// Constants & pure helpers (would be SundaySchoolUtils.ts if split)
+// ════════════════════════════════════════════════════════════════
+
+const COLLECTION_NAME = 'SUNDAYSCHOOL_INCOME'
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-function getSundaysForMonth(year: number, monthIndex: number): number[] {
-  const sundays: number[] = []
-  const date = new Date(year, monthIndex, 1)
-  while (date.getDay() !== 0) {
-    date.setDate(date.getDate() + 1)
+// Bilang ng milliseconds na hihintayin pagkatapos ng huling keystroke
+// bago talaga isulat sa Firestore.
+const SAVE_DEBOUNCE_MS = 800
+// Gaano katagal ipapakita ang "Saved" bago mawala.
+const SAVED_BADGE_MS = 1500
+
+function getSundays(month: number, year: number): Date[] {
+  const out: Date[] = []
+  const d = new Date(year, month, 1)
+  while (d.getMonth() === month) {
+    if (d.getDay() === 0) out.push(new Date(d))
+    d.setDate(d.getDate() + 1)
   }
-  while (date.getMonth() === monthIndex) {
-    sundays.push(date.getDate())
-    date.setDate(date.getDate() + 7)
-  }
-  return sundays
+  return out
 }
 
-function peso(n: number): string {
-  return '₱' + (Math.round(n * 100) / 100).toLocaleString('en-PH', {
+function fmt(n: number): string {
+  return '₱' + n.toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
 }
 
-function entryKey(year: number, monthIndex: number, day: number): string {
-  return `${year}-${monthIndex}-${day}`
+function buildCSV(sundays: Date[], data: SundayTracker): string {
+  let csv = 'Sunday #,Date,Amount (PHP),Status,Note\n'
+  sundays.forEach((d, i) => {
+    const day = d.getDate()
+    const saved = data[day] || {}
+    const amount = saved.amount || '0'
+    const note = (saved.note || '').replace(/,/g, ';')
+    const date = d.toLocaleDateString('en-PH', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const status = saved.received ? 'Received' : 'Pending'
+    csv += `${i + 1},${date},${amount},${status},${note}\n`
+  })
+  return csv
 }
 
-function formatDateLabel(year: number, monthIndex: number, day: number): string {
-  return `${MONTH_NAMES[monthIndex].slice(0, 3)} ${day}, ${year}`
+// ════════════════════════════════════════════════════════════════
+// SaveBadge (would be part of SundaySchoolTable.tsx if split)
+// ════════════════════════════════════════════════════════════════
+
+function SaveBadge({ status }: { status?: RowSaveStatus }) {
+  if (!status) return null
+
+  const styleByStatus: Record<RowSaveStatus, React.CSSProperties> = {
+    saving: { color: '#9ca3af', fontStyle: 'italic' },
+    saved: { color: '#16a34a', fontWeight: 600 },
+    error: { color: '#dc2626', fontWeight: 600 },
+  }
+
+  const labelByStatus: Record<RowSaveStatus, string> = {
+    saving: 'Saving…',
+    saved: '✓ Saved',
+    error: '⚠ Failed to save',
+  }
+
+  return (
+    <span style={{ fontSize: 11, marginLeft: 8, whiteSpace: 'nowrap', ...styleByStatus[status] }}>
+      {labelByStatus[status]}
+    </span>
+  )
 }
 
-const EMPTY_ENTRY: SundayEntry = { amount: '', received: false, note: '' }
+// ════════════════════════════════════════════════════════════════
+// Main component (hook logic + table + page, all in one file)
+// ════════════════════════════════════════════════════════════════
 
 export default function SundaySchool() {
-  const today = new Date()
-  const [viewYear, setViewYear] = useState(today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(today.getMonth()) // 0-indexed
-  const [store, setStore] = useState<EntryStore>({})
+  const now = new Date()
 
-  const sundays = useMemo(
-    () => getSundaysForMonth(viewYear, viewMonth),
-    [viewYear, viewMonth]
+  const [curMonth, setCurMonth] = useState(now.getMonth()) // 0-indexed, same as PLEDGES
+  const [curYear, setCurYear] = useState(now.getFullYear())
+  const [data, setData] = useState<SundayTracker>({})
+  const [loading, setLoading] = useState(false)
+
+  // Status ng pag-save kada Sunday/day — para sa "Saving... / Saved / Failed" indicator
+  const [rowStatus, setRowStatus] = useState<Record<number, RowSaveStatus | undefined>>({})
+
+  // Naka-store dito yung mga pending debounce timer, keyed by "day_field" (hal. "10_amount")
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  // Naka-store dito yung mga timer na nag-clear ng "Saved" badge pagkatapos ng ilang segundo
+  const savedClearTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  const sundays = useMemo(() => getSundays(curMonth, curYear), [curMonth, curYear])
+
+  // ── Fetch entries for the viewed month via dateAdded range query ─────────
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchEntries() {
+      setLoading(true)
+      try {
+        const start = new Date(curYear, curMonth, 1)
+        const end = new Date(curYear, curMonth + 1, 0, 23, 59, 59)
+
+        const q = query(
+          collection(db, COLLECTION_NAME),
+          where('dateAdded', '>=', Timestamp.fromDate(start)),
+          where('dateAdded', '<=', Timestamp.fromDate(end))
+        )
+
+        const snapshot = await getDocs(q)
+        const newData: SundayTracker = {}
+
+        snapshot.forEach(docSnap => {
+          const d = docSnap.data()
+          const day = (d.dateAdded as Timestamp).toDate().getDate()
+          newData[day] = {
+            amount: String(d.amount ?? ''),
+            received: !!d.received,
+            note: d.note ?? '',
+          }
+        })
+
+        if (!cancelled) setData(newData)
+      } catch (err: any) {
+        console.error('fetchEntries error:', err?.message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchEntries()
+    return () => { cancelled = true }
+  }, [curMonth, curYear])
+
+  // Kapag lumipat ng month/year, kanselahin ang lahat ng pending timer
+  // (save timers + saved-badge clear timers) at i-reset ang status indicators.
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimers.current).forEach(clearTimeout)
+      saveTimers.current = {}
+      Object.values(savedClearTimers.current).forEach(clearTimeout)
+      savedClearTimers.current = {}
+      setRowStatus({})
+    }
+  }, [curMonth, curYear])
+
+  const getAmount = (day: number) => parseFloat(data[day]?.amount || '0')
+
+  const total = sundays.reduce((sum, d) => sum + getAmount(d.getDate()), 0)
+  const receivedCount = sundays.filter(d => data[d.getDate()]?.received).length
+  const rate = sundays.length > 0 ? Math.round((receivedCount / sundays.length) * 100) : 0
+
+  // ── Save status indicator helpers ─────────────────────────────────────────
+  function markSaving(day: number) {
+    if (savedClearTimers.current[day]) {
+      clearTimeout(savedClearTimers.current[day])
+      delete savedClearTimers.current[day]
+    }
+    setRowStatus(prev => ({ ...prev, [day]: 'saving' }))
+  }
+
+  function markSaved(day: number) {
+    setRowStatus(prev => ({ ...prev, [day]: 'saved' }))
+    savedClearTimers.current[day] = setTimeout(() => {
+      setRowStatus(prev => {
+        const next = { ...prev }
+        delete next[day]
+        return next
+      })
+      delete savedClearTimers.current[day]
+    }, SAVED_BADGE_MS)
+  }
+
+  function markError(day: number) {
+    setRowStatus(prev => ({ ...prev, [day]: 'error' }))
+  }
+
+  // ── Ito lang ang TANGING lugar na talagang sumusulat sa Firestore ─────────
+  const writeToFirestore = useCallback(
+    async (day: number, field: 'amount' | 'received' | 'note', value: string | boolean) => {
+      const date = new Date(curYear, curMonth, day)
+      const docIdStr = `${curYear}_${curMonth}_${day}`
+
+      const payload: Record<string, any> = {
+        dateAdded: Timestamp.fromDate(date),
+        dateModified: Timestamp.fromDate(new Date()),
+      }
+      if (field === 'amount') payload.amount = parseFloat(value as string) || 0
+      if (field === 'received') payload.received = !!value
+      if (field === 'note') payload.note = value
+
+      try {
+        await setDoc(doc(db, COLLECTION_NAME, docIdStr), payload, { merge: true })
+        markSaved(day)
+      } catch (err: any) {
+        console.error('save error:', err?.message)
+        markError(day)
+      }
+    },
+    [curYear, curMonth]
   )
 
-  const getEntry = (day: number): SundayEntry => {
-    const key = entryKey(viewYear, viewMonth, day)
-    return store[key] ?? EMPTY_ENTRY
+  // Mag-schedule ng save (debounce). Ipinapakita na ang "Saving..." mula ngayon
+  // hanggang matapos ang actual na pagsulat, kaya honest ang feedback sa user.
+  function scheduleSave(day: number, field: 'amount' | 'received' | 'note', value: string | boolean) {
+    const key = `${day}_${field}`
+    if (saveTimers.current[key]) clearTimeout(saveTimers.current[key])
+    markSaving(day)
+    saveTimers.current[key] = setTimeout(() => {
+      delete saveTimers.current[key]
+      writeToFirestore(day, field, value)
+    }, SAVE_DEBOUNCE_MS)
   }
 
-  const updateEntry = (day: number, patch: Partial<SundayEntry>) => {
-    const key = entryKey(viewYear, viewMonth, day)
-    setStore(prev => {
-      const current = prev[key] ?? EMPTY_ENTRY
-      const updated = { ...current, ...patch }
+  // I-save AGAD, kanselahin ang naghihintay na timer (ginagamit sa onBlur, at sa toggle)
+  function flushSave(day: number, field: 'amount' | 'received' | 'note', value: string | boolean) {
+    const key = `${day}_${field}`
+    if (saveTimers.current[key]) {
+      clearTimeout(saveTimers.current[key])
+      delete saveTimers.current[key]
+    }
+    markSaving(day)
+    writeToFirestore(day, field, value)
+  }
 
-      // auto-flip status when amount crosses zero, unless the
-      // caller is explicitly setting `received` themselves
-      if (patch.amount !== undefined && patch.received === undefined) {
-        const val = parseFloat(patch.amount) || 0
-        if (val > 0 && !current.received) updated.received = true
-        if (val === 0 && current.received) updated.received = false
+  // ── onChange: i-update lang ang screen, i-schedule ang save ───────────────
+  const handleAmount = (day: number, value: string) => {
+    setData(prev => {
+      const current = prev[day] || {}
+      const next: SundayEntry = { ...current, amount: value }
+
+      // auto-flip received when amount crosses zero, mirroring the old behavior
+      const val = parseFloat(value) || 0
+      if (val > 0 && !current.received) next.received = true
+      if (val === 0 && current.received) next.received = false
+
+      if (next.received !== current.received) {
+        scheduleSave(day, 'received', !!next.received)
       }
+      return { ...prev, [day]: next }
+    })
+    scheduleSave(day, 'amount', value)
+  }
 
-      return { ...prev, [key]: updated }
+  const handleNote = (day: number, value: string) => {
+    setData(prev => ({ ...prev, [day]: { ...prev[day], note: value } }))
+    scheduleSave(day, 'note', value)
+  }
+
+  // ── onBlur: i-save agad, hindi na maghintay ng 800ms ──────────────────────
+  const commitAmount = (day: number, value: string) => flushSave(day, 'amount', value)
+  const commitNote = (day: number, value: string) => flushSave(day, 'note', value)
+
+  // ── toggle status badge: save agad, walang debounce ───────────────────────
+  const toggleReceived = (day: number) => {
+    setData(prev => {
+      const current = prev[day] || {}
+      const nextReceived = !current.received
+      flushSave(day, 'received', nextReceived)
+      return { ...prev, [day]: { ...current, received: nextReceived } }
     })
   }
 
-  const { total, receivedCount, rate } = useMemo(() => {
-    let total = 0
-    let receivedCount = 0
-    sundays.forEach(day => {
-      const entry = getEntry(day)
-      const val = parseFloat(entry.amount) || 0
-      total += val
-      if (entry.received) receivedCount++
-    })
-    const rate = sundays.length > 0 ? Math.round((receivedCount / sundays.length) * 100) : 0
-    return { total, receivedCount, rate }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sundays, store, viewYear, viewMonth])
+  const exportCSV = () => {
+    const csv = buildCSV(sundays, data)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = `sunday_income_${MONTHS[curMonth]}_${curYear}.csv`
+    a.click()
+  }
 
   const goPrevMonth = () => {
-    setViewMonth(m => {
-      if (m === 0) {
-        setViewYear(y => y - 1)
-        return 11
-      }
+    setCurMonth(m => {
+      if (m === 0) { setCurYear(y => y - 1); return 11 }
       return m - 1
     })
   }
 
   const goNextMonth = () => {
-    setViewMonth(m => {
-      if (m === 11) {
-        setViewYear(y => y + 1)
-        return 0
-      }
+    setCurMonth(m => {
+      if (m === 11) { setCurYear(y => y + 1); return 0 }
       return m + 1
     })
   }
 
   const goToday = () => {
-    setViewYear(today.getFullYear())
-    setViewMonth(today.getMonth())
+    setCurYear(now.getFullYear())
+    setCurMonth(now.getMonth())
   }
 
-  const resetMonth = () => {
-    const monthLabel = `${MONTH_NAMES[viewMonth]} ${viewYear}`
-    if (!confirm(`Reset all entries for ${monthLabel}?`)) return
-    setStore(prev => {
-      const next = { ...prev }
-      sundays.forEach(day => {
-        delete next[entryKey(viewYear, viewMonth, day)]
-      })
-      return next
-    })
-  }
-
-  const exportCsv = () => {
-    let csv = 'Date,Amount,Status,Notes\n'
-    sundays.forEach(day => {
-      const entry = getEntry(day)
-      const dateStr = formatDateLabel(viewYear, viewMonth, day)
-      const amount = entry.amount || '0'
-      const status = entry.received ? 'Received' : 'Pending'
-      const note = (entry.note || '').replace(/"/g, '""')
-      csv += `"${dateStr}","${amount}","${status}","${note}"\n`
-    })
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `sunday-income-${MONTH_NAMES[viewMonth]}-${viewYear}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const monthLabel = `${MONTH_NAMES[viewMonth]} ${viewYear}`
+  const monthLabel = `${MONTHS[curMonth]} ${curYear}`
+  const sundayCount = sundays.length
 
   return (
     <div className="app-layout">
       <NavigationBar />
       <main className="main-content">
+        <div className="page-wrapper">
 
-        <div className="sit-app">
-          <div className="sit-page">
-            <header className="sit-page-head">
-              <h1 className="sit-title">Sunday Income Tracker</h1>
-              {/* <p className="sit-subtitle">Track what comes in every Sunday, month by month.</p> */}
-            </header>
+          <div className="header">
+            <h1>Sunday Income Tracker</h1>
+            <p>Track what comes in every Sunday, month by month.</p>
+          </div>
 
-            <section className="sit-summary">
-              <div className="sit-summary-cell">
-                <div className="sit-label">Sundays this month</div>
-                <div className="sit-value">{sundays.length}</div>
-                <div className="sit-sub">{monthLabel}</div>
-              </div>
-              <div className="sit-summary-cell">
-                <div className="sit-label">Received</div>
-                <div className="sit-value">{receivedCount}</div>
-                <div className="sit-sub">of {sundays.length} Sundays</div>
-              </div>
-              <div className="sit-summary-cell">
-                <div className="sit-label">Total Income</div>
-                <div className="sit-value sit-accent">{peso(total)}</div>
-                <div className="sit-sub">This month</div>
-              </div>
-              <div className="sit-summary-cell">
-                <div className="sit-label">Collection Rate</div>
-                <div className="sit-value">{rate}%</div>
-                <div className="sit-progress-track">
-                  <div className="sit-progress-fill" style={{ width: `${rate}%` }} />
+          <div className="stats-row">
+            <div className="stat-card">
+              <div className="stat-label">Sundays this month</div>
+              <div className="stat-value">{sundayCount}</div>
+              <div className="stat-sub">{monthLabel}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Received</div>
+              <div className={`stat-value ${receivedCount > 0 ? 'green' : ''}`}>{receivedCount}</div>
+              <div className="stat-sub">of {sundayCount} Sundays</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Total Income</div>
+              <div className="stat-value">{fmt(total)}</div>
+              <div className="stat-sub">This month</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Collection rate</div>
+              <div className="stat-value">{rate}%</div>
+              <div className="progress-wrap">
+                <div className="progress-bar-bg">
+                  <div className="progress-bar-fill" style={{ width: `${rate}%` }} />
                 </div>
-              </div>
-            </section>
-
-            <div className="sit-toolbar">
-              <div className="sit-month-nav">
-                <button
-                  type="button"
-                  className="sit-nav-btn"
-                  aria-label="Previous month"
-                  onClick={goPrevMonth}
-                >
-                  ‹
-                </button>
-                <span className="sit-month-label">{monthLabel}</span>
-                <button
-                  type="button"
-                  className="sit-nav-btn"
-                  aria-label="Next month"
-                  onClick={goNextMonth}
-                >
-                  ›
-                </button>
-              </div>
-              <div className="sit-toolbar-actions">
-                <button type="button" className="sit-btn sit-btn-today" onClick={goToday}>
-                  This Month
-                </button>
-                <button type="button" className="sit-btn" onClick={exportCsv}>
-                  Export CSV
-                </button>
-                <button type="button" className="sit-btn" onClick={resetMonth}>
-                  Reset Month
-                </button>
+                <div className="progress-label">{receivedCount} of {sundayCount} Sundays Received</div>
               </div>
             </div>
+          </div>
 
-            <div className="sit-table-card">
-              <table className="sit-table">
+          <div className="filters">
+            <button type="button" className="export-btn" onClick={goPrevMonth} aria-label="Previous month">‹</button>
+            <span style={{ fontWeight: 500, padding: '0 8px' }}>{monthLabel}</span>
+            <button type="button" className="export-btn" onClick={goNextMonth} aria-label="Next month">›</button>
+            <button type="button" className="export-btn" onClick={goToday}>This Month</button>
+            <button type="button" className="export-btn" onClick={exportCSV}>Export CSV</button>
+          </div>
+
+          <div className="table-wrapper">
+            {loading ? (
+              <div style={{ padding: 16, color: 'var(--muted)' }}>Loading entries…</div>
+            ) : (
+              <table className="pledge-table">
                 <thead>
                   <tr>
-                    <th className="sit-th sit-col-num">#</th>
-                    <th className="sit-th sit-col-date">Date</th>
-                    <th className="sit-th sit-col-amount">Amount</th>
-                    <th className="sit-th sit-col-status">Status</th>
-                    <th className="sit-th sit-col-notes">Notes</th>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sundays.map((day, i) => {
-                    const entry = getEntry(day)
-                    const dateLabel = formatDateLabel(viewYear, viewMonth, day)
-                    const hasValue = (parseFloat(entry.amount) || 0) > 0
+                  {sundays.map((d, i) => {
+                    const day = d.getDate()
+                    const saved = data[day] || {}
+                    const received = !!saved.received
 
                     return (
-                      <tr className="sit-row" key={day}>
-                        <td className="sit-td sit-col-num" data-label="#">{i + 1}</td>
-                        <td className="sit-td sit-col-date" data-label="Date">{dateLabel}</td>
-                        <td className="sit-td" data-label="Amount">
-                          <div className={`sit-amount-wrap${hasValue ? ' sit-has-value' : ''}`}>
-                            <span className="sit-peso">₱</span>
+                      <tr key={day}>
+                        <td>{i + 1}</td>
+                        <td>
+                          {d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td>
+                          <div className="amount-cell">
+                            ₱
                             <input
                               type="number"
-                              className="sit-amount-input"
-                              min="0"
-                              step="1"
-                              placeholder="0"
-                              value={entry.amount}
-                              aria-label={`Amount for ${dateLabel}`}
-                              onChange={e => updateEntry(day, { amount: e.target.value })}
+                              min={0}
+                              step={0.01}
+                              value={saved.amount || ''}
+                              onChange={e => handleAmount(day, e.target.value)}
+                              onBlur={e => commitAmount(day, e.target.value)}
                             />
                           </div>
                         </td>
-                        <td className="sit-td" data-label="Status">
+                        <td>
                           <button
                             type="button"
-                            className={`sit-status-badge${entry.received ? ' sit-received' : ''}`}
+                            className={`status ${received ? 'paid' : 'unpaid'}`}
+                            style={{ border: 'none', cursor: 'pointer' }}
+                            onClick={() => toggleReceived(day)}
                             title="Click to toggle status"
-                            onClick={() => updateEntry(day, { received: !entry.received })}
                           >
-                            {entry.received ? 'Received' : 'Pending'}
+                            {received ? 'Received' : 'Pending'}
                           </button>
                         </td>
-                        <td className="sit-td" data-label="Notes">
+                        <td>
                           <input
                             type="text"
-                            className="sit-note-input"
+                            value={saved.note || ''}
                             placeholder="Add note..."
-                            value={entry.note}
-                            aria-label={`Note for ${dateLabel}`}
-                            onChange={e => updateEntry(day, { note: e.target.value })}
+                            onChange={e => handleNote(day, e.target.value)}
+                            onBlur={e => commitNote(day, e.target.value)}
                           />
+                        </td>
+                        <td>
+                          <SaveBadge status={rowStatus[day]} />
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
-              <div className="sit-table-foot">
-                <span>Sundays: <strong>{sundays.length}</strong></span>
-                <span>Received: <strong>{receivedCount}</strong></span>
-                <span>Total: <strong>{peso(total)}</strong></span>
-              </div>
+            )}
+
+            <div className="summary">
+              <span>Sundays: <strong>{sundayCount}</strong></span>
+              <span>Received: <strong>{receivedCount}</strong></span>
+              <span>Total: <strong>{fmt(total)}</strong></span>
             </div>
           </div>
-        </div>
 
+        </div>
       </main>
     </div>
   )
