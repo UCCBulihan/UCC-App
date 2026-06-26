@@ -42,10 +42,11 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-const COLLECTION_NAME = 'LEDGER'
-// Tag para malinaw na ito ay para sa Sunday School, kung sakaling
-// ginagamit din ang parehong "LEDGER" collection sa ibang module (e.g. Pledges).
-const MODULE_TAG = 'SUNDAY_SCHOOL'
+// Own dedicated collection for Sunday School ledger entries — no more
+// shared 'LEDGER' collection + 'module' filter. Since this collection
+// only ever holds Sunday School entries, queries only need to filter/sort
+// on a single field (dateAdded), so no composite index is required.
+const COLLECTION_NAME = 'SundaySchoolLedger'
 
 function fmt(n: number) {
   return '₱' + n.toLocaleString('en-PH', {
@@ -89,9 +90,10 @@ export default function SundaySchoolLedger() {
     try {
       const start = new Date(curYear, curMonth, 1)
       const end = new Date(curYear, curMonth + 1, 0, 23, 59, 59)
+      // Single-field filter + sort (dateAdded only) — Firestore's built-in
+      // single-field index covers this, so no composite index is needed.
       const q = query(
         collection(db, COLLECTION_NAME),
-        where('module', '==', MODULE_TAG),
         where('dateAdded', '>=', Timestamp.fromDate(start)),
         where('dateAdded', '<=', Timestamp.fromDate(end)),
         orderBy('dateAdded', 'asc')
@@ -120,7 +122,7 @@ export default function SundaySchoolLedger() {
   }
 
   // Kunin ang total income ng Sunday School para sa buwang ito, para sa net balance.
-  // Hiwalay itong collection (SUNDAYSCHOOL_INCOME) sa LEDGER (expenses).
+  // Hiwalay itong collection (SUNDAYSCHOOL_INCOME) sa SundaySchoolLedger (expenses).
   async function fetchIncomeTotal() {
     setIncomeLoading(true)
     try {
@@ -151,7 +153,6 @@ export default function SundaySchoolLedger() {
     try {
       const dateAdded = new Date(form.dateAdded + 'T00:00:00')
       const payload = {
-        module: MODULE_TAG,
         category: form.category.trim(),
         amount: parseFloat(form.amount) || 0,
         description: form.description.trim(),
