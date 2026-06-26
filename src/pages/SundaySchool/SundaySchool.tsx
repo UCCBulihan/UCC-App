@@ -12,11 +12,14 @@ interface SundayEntry {
   amount?: string
   received?: boolean
   note?: string
+  sponsor?: string
 }
 
 type SundayTracker = Record<number, SundayEntry> // keyed by day-of-month
 
 export type RowSaveStatus = 'saving' | 'saved' | 'error'
+
+type SundayField = 'amount' | 'received' | 'note' | 'sponsor'
 
 // ════════════════════════════════════════════════════════════════
 // Constants & pure helpers (would be SundaySchoolUtils.ts if split)
@@ -53,17 +56,18 @@ function fmt(n: number): string {
 }
 
 function buildCSV(sundays: Date[], data: SundayTracker): string {
-  let csv = 'Sunday #,Date,Amount (PHP),Status,Note\n'
+  let csv = 'Sunday #,Date,Amount (PHP),Status,Sponsor,Note\n'
   sundays.forEach((d, i) => {
     const day = d.getDate()
     const saved = data[day] || {}
     const amount = saved.amount || '0'
     const note = (saved.note || '').replace(/,/g, ';')
+    const sponsor = (saved.sponsor || '').replace(/,/g, ';')
     const date = d.toLocaleDateString('en-PH', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     })
     const status = saved.received ? 'Received' : 'Pending'
-    csv += `${i + 1},${date},${amount},${status},${note}\n`
+    csv += `${i + 1},${date},${amount},${status},${sponsor},${note}\n`
   })
   return csv
 }
@@ -142,6 +146,7 @@ export default function SundaySchool() {
             amount: String(d.amount ?? ''),
             received: !!d.received,
             note: d.note ?? '',
+            sponsor: d.sponsor ?? '',
           }
         })
 
@@ -202,7 +207,7 @@ export default function SundaySchool() {
 
   // ── Ito lang ang TANGING lugar na talagang sumusulat sa Firestore ─────────
   const writeToFirestore = useCallback(
-    async (day: number, field: 'amount' | 'received' | 'note', value: string | boolean) => {
+    async (day: number, field: SundayField, value: string | boolean) => {
       const date = new Date(curYear, curMonth, day)
       const docIdStr = `${curYear}_${curMonth}_${day}`
 
@@ -213,6 +218,7 @@ export default function SundaySchool() {
       if (field === 'amount') payload.amount = parseFloat(value as string) || 0
       if (field === 'received') payload.received = !!value
       if (field === 'note') payload.note = value
+      if (field === 'sponsor') payload.sponsor = value
 
       try {
         await setDoc(doc(db, COLLECTION_NAME, docIdStr), payload, { merge: true })
@@ -227,7 +233,7 @@ export default function SundaySchool() {
 
   // Mag-schedule ng save (debounce). Ipinapakita na ang "Saving..." mula ngayon
   // hanggang matapos ang actual na pagsulat, kaya honest ang feedback sa user.
-  function scheduleSave(day: number, field: 'amount' | 'received' | 'note', value: string | boolean) {
+  function scheduleSave(day: number, field: SundayField, value: string | boolean) {
     const key = `${day}_${field}`
     if (saveTimers.current[key]) clearTimeout(saveTimers.current[key])
     markSaving(day)
@@ -238,7 +244,7 @@ export default function SundaySchool() {
   }
 
   // I-save AGAD, kanselahin ang naghihintay na timer (ginagamit sa onBlur, at sa toggle)
-  function flushSave(day: number, field: 'amount' | 'received' | 'note', value: string | boolean) {
+  function flushSave(day: number, field: SundayField, value: string | boolean) {
     const key = `${day}_${field}`
     if (saveTimers.current[key]) {
       clearTimeout(saveTimers.current[key])
@@ -272,9 +278,15 @@ export default function SundaySchool() {
     scheduleSave(day, 'note', value)
   }
 
+  const handleSponsor = (day: number, value: string) => {
+    setData(prev => ({ ...prev, [day]: { ...prev[day], sponsor: value } }))
+    scheduleSave(day, 'sponsor', value)
+  }
+
   // ── onBlur: i-save agad, hindi na maghintay ng 800ms ──────────────────────
   const commitAmount = (day: number, value: string) => flushSave(day, 'amount', value)
   const commitNote = (day: number, value: string) => flushSave(day, 'note', value)
+  const commitSponsor = (day: number, value: string) => flushSave(day, 'sponsor', value)
 
   // ── toggle status badge: save agad, walang debounce ───────────────────────
   const toggleReceived = (day: number) => {
@@ -374,6 +386,7 @@ export default function SundaySchool() {
                     <th>Date</th>
                     <th>Amount</th>
                     <th>Status</th>
+                    <th>Sponsor</th>
                     <th>Notes</th>
                     <th></th>
                   </tr>
@@ -413,6 +426,15 @@ export default function SundaySchool() {
                           >
                             {received ? 'Received' : 'Pending'}
                           </button>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={saved.sponsor || ''}
+                            placeholder="Add sponsor..."
+                            onChange={e => handleSponsor(day, e.target.value)}
+                            onBlur={e => commitSponsor(day, e.target.value)}
+                          />
                         </td>
                         <td>
                           <input

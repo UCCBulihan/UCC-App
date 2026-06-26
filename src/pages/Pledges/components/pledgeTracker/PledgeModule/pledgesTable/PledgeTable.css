@@ -29,6 +29,7 @@
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   vertical-align: middle;
+  text-align: left;
 }
 
 /* AMOUNT */
