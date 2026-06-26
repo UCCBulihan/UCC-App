@@ -6,6 +6,7 @@ import './sundaySchool.css'
 import './reports.css'
 
 const COLLECTION_NAME = 'SUNDAYSCHOOL_INCOME'
+const LEDGER_COLLECTION_NAME = 'SundaySchoolLedger'
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -92,6 +93,62 @@ function useYearlyIncome(year: number) {
   return { monthlyTotals, pendingTotal, loading, error }
 }
 
+// ════════════════════════════════════════════════════════════════
+// Real data: pull every SundaySchoolLedger (expense) doc for the
+// selected year and bucket the amounts by month, same approach as
+// useYearlyIncome above. Every ledger entry counts as an expense —
+// there's no pending/received distinction here, since money spent
+// is spent.
+// ════════════════════════════════════════════════════════════════
+function useYearlyExpenses(year: number) {
+  const [monthlyTotals, setMonthlyTotals] = useState<number[]>(() => Array(12).fill(0))
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchYear() {
+      setLoading(true)
+      setError(null)
+      try {
+        const start = new Date(year, 0, 1)
+        const end = new Date(year, 11, 31, 23, 59, 59)
+
+        const q = query(
+          collection(db, LEDGER_COLLECTION_NAME),
+          where('dateAdded', '>=', Timestamp.fromDate(start)),
+          where('dateAdded', '<=', Timestamp.fromDate(end))
+        )
+
+        const snapshot = await getDocs(q)
+        const totals = Array(12).fill(0)
+
+        snapshot.forEach(docSnap => {
+          const d = docSnap.data()
+          const month = (d.dateAdded as Timestamp).toDate().getMonth()
+          const amount = d.amount ?? 0
+          totals[month] += amount
+        })
+
+        if (!cancelled) {
+          setMonthlyTotals(totals)
+        }
+      } catch (err: any) {
+        console.error('fetchYear (expenses) error:', err?.message)
+        if (!cancelled) setError('Could not load expense data. Please try again.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchYear()
+    return () => { cancelled = true }
+  }, [year])
+
+  return { monthlyTotals, loading, error }
+}
+
 export default function SundaySchoolReport() {
   const currentRealYear = new Date().getFullYear()
   const [year, setYear] = useState(currentRealYear)
@@ -103,13 +160,21 @@ export default function SundaySchoolReport() {
   }, [currentRealYear])
 
   const { monthlyTotals, pendingTotal, loading, error } = useYearlyIncome(year)
+  const {
+    monthlyTotals: expenseMonthlyTotals,
+    loading: expensesLoading,
+    error: expensesError,
+  } = useYearlyExpenses(year)
 
   const totalForYear = monthlyTotals.reduce((sum, v) => sum + v, 0)
+  const totalExpensesForYear = expenseMonthlyTotals.reduce((sum, v) => sum + v, 0)
+  const netBalance = totalForYear - totalExpensesForYear
   const monthsWithIncome = monthlyTotals.filter(v => v > 0).length
   const averagePerMonth = monthsWithIncome > 0 ? totalForYear / monthsWithIncome : 0
   const maxMonthValue = Math.max(...monthlyTotals, 1)
   const bestMonthIndex = monthlyTotals.indexOf(Math.max(...monthlyTotals))
   const hasAnyIncome = totalForYear > 0
+  const isLoading = loading || expensesLoading
 
   return (
     <div className="app-layout">
@@ -141,8 +206,13 @@ export default function SundaySchoolReport() {
                 {error}
               </div>
             )}
+            {expensesError && (
+              <div className="sit-chart-card" style={{ color: 'var(--sit-pending)' }}>
+                {expensesError}
+              </div>
+            )}
 
-            {loading ? (
+            {isLoading ? (
               <div className="sit-chart-card">Loading {year} report…</div>
             ) : (
               <>
@@ -166,6 +236,21 @@ export default function SundaySchoolReport() {
                     <div className="sit-label">Pending</div>
                     <div className="sit-value">{peso(pendingTotal)}</div>
                     <div className="sit-sub">logged, not yet received</div>
+                  </div>
+                  <div className="sit-summary-cell">
+                    <div className="sit-label">Total Expenses</div>
+                    <div className="sit-value" style={{ color: 'var(--sit-pending)' }}>{peso(totalExpensesForYear)}</div>
+                    <div className="sit-sub">{year} full year, from the ledger</div>
+                  </div>
+                  <div className="sit-summary-cell">
+                    <div className="sit-label">Net Balance</div>
+                    <div
+                      className="sit-value"
+                      style={{ color: netBalance < 0 ? 'var(--sit-pending)' : 'var(--sit-good)' }}
+                    >
+                      {peso(netBalance)}
+                    </div>
+                    <div className="sit-sub">income minus expenses</div>
                   </div>
                 </section>
 
