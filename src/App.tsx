@@ -15,6 +15,7 @@ import { useAuthSync } from './firebase/useAuthSync';
 import SundaySchool from './pages/SundaySchool/SundaySchool'
 import SundaySchoolReport from './pages/SundaySchool/SundaySchoolReport'
 import SundaySchoolLedger from './pages/SundaySchool/SundaySchoolLedger'
+import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
 
 function App() {
 useAuthSync();
@@ -32,6 +33,7 @@ useAuthSync();
       <Route path='SundaySchool/SundaySchoolLedger' element ={<SundaySchoolLedger/>} />
       <Route path='SundaySchool/SundaySchool' element ={<SundaySchool/>} />
       <Route path='SundaySchool/report' element ={<SundaySchoolReport/>} />
+      <Route path='SundaySchool/SundaySchoolLineUp' element ={<SundaySchoolLineUp/>} />
       <Route path="/ledger" element={<Ledger />} />
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />

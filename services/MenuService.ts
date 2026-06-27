@@ -36,9 +36,9 @@ export class MenuService implements IMenuService {
        {
             sortOrder: 50, name: 'Sunday School', iconClass: 'fa-solid fa-chalkboard-user', path: '',
             subMenuItems: [
-                { sortOrder: 51, name: 'Line Up', iconClass: 'fa-solid fa-users-line', path: '/lineup' },
+                { sortOrder: 51, name: 'Line Up', iconClass: 'fa-solid fa-users-line', path: '/SundaySchool/SundaySchoolLineUp' },
                 { sortOrder: 52, name: 'Savings', iconClass: 'fa-solid fa-piggy-bank', path: '/SundaySchool/SundaySchool' },
-                { sortOrder: 53, name: 'Ledger', iconClass: 'fa-solid fa-book', path: '/SundaySchool/SundaySchoolLedger' },
+                { sortOrder: 53, name: 'Ledger', iconClass: 'fa-solid fa-book', path: '/SundaySchool//SundaySchoolLedger' },
                 { sortOrder: 54, name: 'Report', iconClass: 'fa-solid fa-chart-bar', path: '/SundaySchool/report' },
             ]
         },
