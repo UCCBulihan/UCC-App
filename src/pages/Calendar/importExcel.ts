@@ -264,4 +264,4 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
   }
 
   return { events, issues }
-}
+} 
