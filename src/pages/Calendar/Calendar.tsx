@@ -764,10 +764,7 @@ export default function Calendar() {
                           const categoryColor = category?.color
                           const tagStyle =
                             !activity.isHoliday && categoryColor
-                              ? {
-                                  background: `${categoryColor}1f`,
-                                  color: categoryColor,
-                                }
+                              ? { color: categoryColor }
                               : undefined
 
                           return (
