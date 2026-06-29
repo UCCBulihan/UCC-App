@@ -13,6 +13,8 @@ import {
 import { db } from "../../firebase/firebase";
 import { useEffect, useMemo, useState, type FormEvent, type CSSProperties } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
+import ImportActivitiesModal from './ImportActivitiesModal'
+import './calendar_import_additions.css'
 import './calendar.css'
 
 type Activity = {
@@ -136,6 +138,7 @@ export default function Calendar() {
   const [categoryDraft, setCategoryDraft] = useState<NewCategoryDraft>(createEmptyCategoryDraft)
   const [categoryFormError, setCategoryFormError] = useState<string | null>(null)
   const [categoryPendingDelete, setCategoryPendingDelete] = useState<Category | null>(null)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
   // Inline edit state for the manage-categories list. Only one row can be
   // in edit mode at a time; editDraft holds the in-progress name/color
@@ -305,17 +308,18 @@ export default function Calendar() {
   // Order matters: the delete confirmation sits on top of the category
   // modal, which sits on top of the activity modal.
   useEffect(() => {
-    if (!isModalOpen && !isCategoryModalOpen) return
+    if (!isModalOpen && !isCategoryModalOpen && !isImportModalOpen) return
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
       if (categoryPendingDelete) setCategoryPendingDelete(null)
       else if (editingCategoryId) cancelEditCategory()
       else if (isCategoryModalOpen) setIsCategoryModalOpen(false)
+      else if (isImportModalOpen) setIsImportModalOpen(false)
       else setIsModalOpen(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isModalOpen, isCategoryModalOpen, categoryPendingDelete, editingCategoryId])
+  }, [isModalOpen, isCategoryModalOpen, isImportModalOpen, categoryPendingDelete, editingCategoryId])
 
   function goToPrevMonth() {
     setMonthAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -338,6 +342,14 @@ export default function Calendar() {
 
   function closeModal() {
     setIsModalOpen(false)
+  }
+
+  function openImportModal() {
+    setIsImportModalOpen(true)
+  }
+
+  function closeImportModal() {
+    setIsImportModalOpen(false)
   }
 
   function openCategoryModal() {
@@ -561,6 +573,9 @@ export default function Calendar() {
               <div className="calendar-toolbar-right">
                 <button type="button" className="calendar-btn calendar-btn-ghost" onClick={goToToday}>
                   Today
+                </button>
+                <button type="button" className="calendar-btn calendar-btn-ghost" onClick={openImportModal}>
+                  Import from Excel
                 </button>
                 <button type="button" className="calendar-btn calendar-btn-primary" onClick={openNewActivityModal}>
                   + New activity
@@ -863,6 +878,20 @@ export default function Calendar() {
                 </form>
               </div>
             </div>
+          )}
+
+          {isImportModalOpen && (
+            <ImportActivitiesModal
+              categories={categories}
+              onClose={closeImportModal}
+              onImported={() => {
+                // Categories list updates on its own via the CATEGORIES
+                // onSnapshot listener; activities for the visible month
+                // refresh the same way via CALENDAR_EVENTS. Nothing else
+                // to do here, but kept as an explicit hook in case the
+                // import flow needs to trigger other UI changes later.
+              }}
+            />
           )}
 
           {isCategoryModalOpen && (

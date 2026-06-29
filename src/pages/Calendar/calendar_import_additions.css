@@ -1,0 +1,259 @@
+/* ===== Import activities modal ===== */
+/* Append these rules to calendar.css. Uses the same --cal-* tokens and the
+   existing 860px breakpoint convention already established in the file,
+   plus a tighter 640px breakpoint for collapsing the preview table into
+   stacked cards on phones. */
+
+.calendar-modal-wide {
+  width: 100%;
+  max-width: 760px;
+}
+
+.calendar-import-hint {
+  font-size: 13px;
+  color: var(--cal-text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.calendar-import-filepicker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1.5px dashed var(--cal-border-strong);
+  border-radius: var(--cal-radius-sm);
+  padding: 28px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--cal-text-secondary);
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.calendar-import-filepicker:hover {
+  border-color: var(--cal-accent);
+  background: var(--cal-accent-soft);
+  color: var(--cal-text);
+}
+
+.calendar-import-filepicker input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.calendar-import-preview {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.calendar-import-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--cal-text);
+}
+
+.calendar-import-summary-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.calendar-import-issues {
+  background: var(--cal-accent-soft);
+  border: 1px solid var(--cal-border-strong);
+  border-radius: var(--cal-radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.calendar-import-issues-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cal-text);
+}
+
+.calendar-import-issue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--cal-border);
+}
+
+.calendar-import-issue-row:first-of-type {
+  border-top: none;
+}
+
+.calendar-import-issue-row input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--cal-accent);
+  cursor: pointer;
+}
+
+.calendar-import-issue-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+}
+
+.calendar-import-issue-title {
+  font-size: 14px;
+  color: var(--cal-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-import-issue-date {
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* ---------- Preview table (desktop/tablet) ---------- */
+
+.calendar-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.calendar-import-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cal-text-secondary);
+  border-bottom: 1px solid var(--cal-border);
+  padding: 6px 8px;
+  position: sticky;
+  top: 0;
+  background: var(--cal-surface);
+}
+
+.calendar-import-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--cal-border);
+  vertical-align: middle;
+  color: var(--cal-text);
+}
+
+.calendar-import-table tr:last-child td {
+  border-bottom: none;
+}
+
+.calendar-import-cell-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--cal-accent);
+  cursor: pointer;
+}
+
+.calendar-import-row-excluded {
+  opacity: 0.45;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 860px) {
+  .calendar-modal-wide {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/* Below 640px, the preview table loses its grid semantics and renders as
+   a list of stacked cards, one per activity — same visual rhythm as
+   .calendar-agenda-item, so it doesn't look like a new pattern. */
+@media (max-width: 640px) {
+  .calendar-import-table thead {
+    display: none;
+  }
+
+  .calendar-import-table,
+  .calendar-import-table tbody,
+  .calendar-import-table tr,
+  .calendar-import-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .calendar-import-table tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--cal-border);
+    border-radius: var(--cal-radius-sm);
+    padding: 12px 12px 12px 40px;
+    margin-bottom: 10px;
+  }
+
+  .calendar-import-table td {
+    border-bottom: none;
+    padding: 2px 0;
+  }
+
+  .calendar-import-cell-checkbox {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 0 !important;
+  }
+
+  .calendar-import-cell-title {
+    order: -2;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  /* Labels reappear as small captions ahead of each value, e.g. "Date". */
+  .calendar-import-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--cal-text-tertiary);
+    margin-top: 4px;
+  }
+
+  /* Date sits right under the title, as a quiet caption — no need to
+     relabel it the same way the other fields are labeled. */
+  .calendar-import-table td[data-label='Date'] {
+    order: -1;
+    font-size: 12px;
+    color: var(--cal-text-secondary);
+  }
+
+  .calendar-import-table td[data-label='Date']::before {
+    content: none;
+  }
+
+  .calendar-import-issue-row {
+    flex-wrap: wrap;
+  }
+
+  .calendar-import-issue-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .calendar-import-issue-date {
+    width: 100%;
+  }
+}
