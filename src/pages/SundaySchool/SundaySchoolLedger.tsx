@@ -46,7 +46,7 @@ const MONTHS = [
 // shared 'LEDGER' collection + 'module' filter. Since this collection
 // only ever holds Sunday School entries, queries only need to filter/sort
 // on a single field (dateAdded), so no composite index is required.
-const COLLECTION_NAME = 'SundaySchoolLedger'
+const COLLECTION_NAME = 'SUNDAYSCHOOLLEDGER'
 
 function fmt(n: number) {
   return '₱' + n.toLocaleString('en-PH', {

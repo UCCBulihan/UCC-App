@@ -23,7 +23,7 @@ interface SundayEntry {
 
 type RosterData = Record<string, SundayEntry>; // key: "YYYY-MM-DD"
 
-const COLLECTION_NAME = "sundaySchoolLineUp";
+const COLLECTION_NAME = "SUNDAYSCHOOLLINEUP";
 const MAX_NAME_LENGTH = 80;
 const MAX_TOPIC_LENGTH = 120;
 const MONTHS = [
