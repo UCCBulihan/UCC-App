@@ -586,6 +586,7 @@ export default function Calendar() {
                 const dayItems = getDayItems(dateKey)
                 const hasItems = dayItems.length > 0
                 const dotColor = getCategoryById(dayItems.find((item) => item.categoryId)?.categoryId)?.color
+                const itemCount = dayItems.length
 
                 const cellClassNames = [
                   'calendar-cell',
@@ -607,11 +608,21 @@ export default function Calendar() {
                   >
                     <span className="calendar-cell-number">{date.getDate()}</span>
                     {hasItems && (
-                      <span
-                        className="calendar-cell-dot"
-                        aria-hidden="true"
-                        style={dotColor ? { background: dotColor } : undefined}
-                      />
+                      itemCount > 1 ? (
+                        <span
+                          className="calendar-cell-badge"
+                          aria-hidden="true"
+                          style={dotColor ? { background: dotColor } : undefined}
+                        >
+                          +{itemCount}
+                        </span>
+                      ) : (
+                        <span
+                          className="calendar-cell-dot"
+                          aria-hidden="true"
+                          style={dotColor ? { background: dotColor } : undefined}
+                        />
+                      )
                     )}
                   </button>
                 )
