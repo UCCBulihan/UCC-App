@@ -63,10 +63,22 @@ const CATEGORY_COLORS = [
   { value: '#2563eb', label: 'Blue' },
   { value: '#7c3aed', label: 'Purple' },
   { value: '#db2777', label: 'Pink' },
-  { value: '#d97706', label: 'Amber' },
+  { value: '#330069', label: 'Amber' },
   { value: '#dc2626', label: 'Red' },
   { value: '#16a34a', label: 'Green' },
   { value: '#525252', label: 'Slate' },
+  { value: '#0891b2', label: 'Cyan' },
+  { value: '#4f46e5', label: 'Indigo' },
+  { value: '#65a30d', label: 'Lime' },
+  { value: '#ea580c', label: 'Orange' },
+  { value: '#be123c', label: 'Rose' },
+  { value: '#a16207', label: 'Gold' },
+  { value: '#9333ea', label: 'Violet' },
+  { value: '#0f766e', label: 'Dark Teal' },
+  { value: '#1d4ed8', label: 'Royal Blue' },
+  { value: '#15803d', label: 'Emerald' },
+  { value: '#c2410c', label: 'Burnt Orange' },
+  { value: '#7f1d1d', label: 'Maroon' },
 ] as const
 
 function createEmptyDraft(initialDate: Date, defaultCategoryId: string | null): NewActivityDraft {
