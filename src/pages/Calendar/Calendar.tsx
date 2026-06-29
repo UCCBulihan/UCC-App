@@ -608,22 +608,22 @@ export default function Calendar() {
                   >
                     <span className="calendar-cell-number">{date.getDate()}</span>
                     {hasItems && (
-                      itemCount > 1 ? (
-                        <span
-                          className="calendar-cell-badge"
-                          aria-hidden="true"
-                          style={dotColor ? { background: dotColor } : undefined}
-                        >
-                          +{itemCount}
-                        </span>
-                      ) : (
-                        <span
-                          className="calendar-cell-dot"
-                          aria-hidden="true"
-                          style={dotColor ? { background: dotColor } : undefined}
-                        />
-                      )
-                    )}
+                    itemCount > 1 ? (
+                      <span
+                        className="calendar-cell-badge"
+                        aria-hidden="true"
+                        style={dotColor && !isSelected ? { background: dotColor } : undefined}
+                      >
+                        +{itemCount}
+                      </span>
+                    ) : (
+                      <span
+                        className="calendar-cell-dot"
+                        aria-hidden="true"
+                        style={dotColor && !isSelected ? { background: dotColor } : undefined}
+                      />
+                    )
+                  )}
                   </button>
                 )
               })}
