@@ -7,7 +7,9 @@ import {
   serverTimestamp,
   onSnapshot,
   query,
-  where
+  where,
+  getDocs,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
@@ -18,6 +20,7 @@ import './calendar_import_additions.css'
 import './calendar.css'
 
 type Activity = {
+  id: string
   time: string
   title: string
   client?: string
@@ -139,6 +142,8 @@ export default function Calendar() {
   const [categoryFormError, setCategoryFormError] = useState<string | null>(null)
   const [categoryPendingDelete, setCategoryPendingDelete] = useState<Category | null>(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isDeduping, setIsDeduping] = useState(false)
+  const [dedupeStatus, setDedupeStatus] = useState<string | null>(null)
 
   // Inline edit state for the manage-categories list. Only one row can be
   // in edit mode at a time; editDraft holds the in-progress name/color
@@ -207,6 +212,7 @@ export default function Calendar() {
           }
 
           events[data.date].push({
+            id: doc.id,
             time: data.time,
             title: data.title,
             categoryId: data.categoryId
@@ -250,7 +256,7 @@ export default function Calendar() {
     const items: Activity[] = []
     const holiday = holidays[dateKey]
     if (holiday) {
-      items.push({ time: 'Holiday', title: holiday.name, isHoliday: true })
+      items.push({ id: `holiday-${dateKey}`, time: 'Holiday', title: holiday.name, isHoliday: true })
     }
     items.push(...(activitiesByDate[dateKey] ?? []))
     return items
@@ -350,6 +356,74 @@ export default function Calendar() {
 
   function closeImportModal() {
     setIsImportModalOpen(false)
+  }
+
+  // ---- Temporary one-time utility: remove exact-duplicate activities ----
+  // Scans EVERY CALENDAR_EVENTS doc (not just the visible month), groups
+  // them by their full content, and deletes all but one copy of each
+  // group. Meant to clean up the effects of an accidental double-import;
+  // safe to remove this block once you've run it and confirmed it's clean.
+  async function handleRemoveDuplicates() {
+    const confirmed = window.confirm(
+      'This will scan ALL activities (every month) and permanently delete exact duplicates, keeping one copy of each. This cannot be undone. Continue?'
+    )
+    if (!confirmed) return
+
+    setIsDeduping(true)
+    setDedupeStatus('Scanning all activities…')
+
+    try {
+      const snapshot = await getDocs(collection(db, 'CALENDAR_EVENTS'))
+
+      const groups = new Map<string, { id: string; createdAtMs: number }[]>()
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data()
+        const key = [
+          data.date ?? '',
+          data.time ?? '',
+          data.title ?? '',
+          data.categoryId ?? '',
+          data.inCharge ?? '',
+          data.place ?? '',
+          data.budget ?? '',
+        ].join('|')
+
+        const createdAtMs: number = data.createdAt?.toMillis ? data.createdAt.toMillis() : 0
+        const list = groups.get(key) ?? []
+        list.push({ id: docSnap.id, createdAtMs })
+        groups.set(key, list)
+      })
+
+      const idsToDelete: string[] = []
+      for (const entries of groups.values()) {
+        if (entries.length <= 1) continue
+        // Keep the oldest copy (earliest createdAt), delete the rest.
+        entries.sort((a, b) => a.createdAtMs - b.createdAtMs)
+        for (const extra of entries.slice(1)) idsToDelete.push(extra.id)
+      }
+
+      if (idsToDelete.length === 0) {
+        setDedupeStatus('No duplicates found — your activities are already clean.')
+        return
+      }
+
+      const BATCH_LIMIT = 450
+      let deleted = 0
+      for (let i = 0; i < idsToDelete.length; i += BATCH_LIMIT) {
+        const chunk = idsToDelete.slice(i, i + BATCH_LIMIT)
+        const batch = writeBatch(db)
+        for (const id of chunk) batch.delete(doc(db, 'CALENDAR_EVENTS', id))
+        await batch.commit()
+        deleted += chunk.length
+        setDedupeStatus(`Deleted ${deleted} of ${idsToDelete.length} duplicates…`)
+      }
+
+      setDedupeStatus(`Done — removed ${deleted} duplicate ${deleted === 1 ? 'activity' : 'activities'}.`)
+    } catch (err) {
+      setDedupeStatus('Something went wrong while removing duplicates. Please try again.')
+    } finally {
+      setIsDeduping(false)
+    }
   }
 
   function openCategoryModal() {
@@ -577,11 +651,25 @@ export default function Calendar() {
                 <button type="button" className="calendar-btn calendar-btn-ghost" onClick={openImportModal}>
                   Import from Excel
                 </button>
+                <button
+                  type="button"
+                  className="calendar-btn calendar-btn-ghost"
+                  onClick={handleRemoveDuplicates}
+                  disabled={isDeduping}
+                  title="One-time cleanup: removes exact-duplicate activities created by an accidental double-import"
+                >
+                  {isDeduping ? 'Removing duplicates…' : 'Remove Duplicates'}
+                </button>
                 <button type="button" className="calendar-btn calendar-btn-primary" onClick={openNewActivityModal}>
                   + New activity
                 </button>
               </div>
             </header>
+            {dedupeStatus && (
+              <p className="calendar-import-hint" style={{ margin: '0 0 12px' } as CSSProperties}>
+                {dedupeStatus}
+              </p>
+            )}
 
             <div className="calendar-weekday-row">
               {WEEKDAY_LABELS.map((label) => (
@@ -684,7 +772,7 @@ export default function Calendar() {
 
                           return (
                             <li
-                              key={`${activity.time}-${activity.title}`}
+                              key={activity.id}
                               className={
                                 activity.isHoliday
                                   ? 'calendar-agenda-item calendar-agenda-item-holiday'
@@ -884,12 +972,18 @@ export default function Calendar() {
             <ImportActivitiesModal
               categories={categories}
               onClose={closeImportModal}
-              onImported={() => {
+              onImported={(firstImportedDate) => {
                 // Categories list updates on its own via the CATEGORIES
                 // onSnapshot listener; activities for the visible month
-                // refresh the same way via CALENDAR_EVENTS. Nothing else
-                // to do here, but kept as an explicit hook in case the
-                // import flow needs to trigger other UI changes later.
+                // refresh the same way via CALENDAR_EVENTS. But the
+                // CALENDAR_EVENTS listener is scoped to whatever month is
+                // currently on screen — if the import landed in a
+                // different month, jump there so the result is actually
+                // visible instead of looking like nothing happened.
+                if (firstImportedDate) {
+                  const [y, m] = firstImportedDate.split('-').map(Number)
+                  setMonthAnchor(new Date(y, m - 1, 1))
+                }
               }}
             />
           )}

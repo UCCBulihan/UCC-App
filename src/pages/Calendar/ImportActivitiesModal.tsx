@@ -2,6 +2,8 @@ import { useState, type ChangeEvent, type CSSProperties } from 'react'
 import {
   collection,
   addDoc,
+  doc,
+  writeBatch,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
@@ -24,7 +26,10 @@ type Props = {
   onClose: () => void
   // Called after a successful import so the calendar can refresh its
   // category list (in case new ones were created) without a full reload.
-  onImported: () => void
+  // Receives the earliest imported date ('YYYY-MM-DD'), if any, so the
+  // calendar can jump straight to the month where the activities landed
+  // — otherwise they'd be invisible if you're viewing a different month.
+  onImported: (firstImportedDate?: string) => void
 }
 
 type RowState = ParsedImportEvent & {
@@ -42,6 +47,7 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
   const [parseError, setParseError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedCount, setSavedCount] = useState(0)
+  const [saveProgress, setSaveProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 })
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -107,14 +113,21 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
     return idByName
   }
 
+  // Firestore allows at most 500 writes per batch — stay comfortably under
+  // that so a single commit never gets rejected for size.
+  const BATCH_LIMIT = 450
+
   async function handleConfirmImport() {
     setStep('saving')
     setSaveError(null)
+    setSaveProgress({ done: 0, total: 0 })
 
     try {
       const idByName = await ensureCategoriesExist()
-      let count = 0
 
+      // Resolve the final (row, date) pairs to save first, so the progress
+      // total reflects only what's actually going to be written.
+      const toSave: { row: RowState; date: string }[] = []
       for (const row of rows) {
         if (!row.included) continue
 
@@ -124,22 +137,44 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
         const date = isIssueRow ? issueDates[row.sourceRow] : row.date
         if (!date) continue
 
-        await addDoc(collection(db, 'CALENDAR_EVENTS'), {
-          title: row.title,
-          date,
-          time: row.time || 'Whole day',
-          categoryId: idByName.get(row.category) ?? null,
-          inCharge: row.inCharge || null,
-          place: row.place || null,
-          budget: row.budget || null,
-          createdAt: serverTimestamp(),
-        })
-        count += 1
+        toSave.push({ row, date })
+      }
+
+      setSaveProgress({ done: 0, total: toSave.length })
+
+      let count = 0
+      let firstImportedDate: string | undefined
+
+      // Commit in chunks instead of one addDoc per row (which was awaiting
+      // a full network round-trip per activity — painfully slow for a
+      // full year's worth of rows). Each chunk is a single round-trip.
+      for (let i = 0; i < toSave.length; i += BATCH_LIMIT) {
+        const chunk = toSave.slice(i, i + BATCH_LIMIT)
+        const batch = writeBatch(db)
+
+        for (const { row, date } of chunk) {
+          const ref = doc(collection(db, 'CALENDAR_EVENTS'))
+          batch.set(ref, {
+            title: row.title,
+            date,
+            time: row.time || 'Whole day',
+            categoryId: idByName.get(row.category) ?? null,
+            inCharge: row.inCharge || null,
+            place: row.place || null,
+            budget: row.budget || null,
+            createdAt: serverTimestamp(),
+          })
+          if (!firstImportedDate || date < firstImportedDate) firstImportedDate = date
+        }
+
+        await batch.commit()
+        count += chunk.length
+        setSaveProgress({ done: count, total: toSave.length })
       }
 
       setSavedCount(count)
       setStep('done')
-      onImported()
+      onImported(firstImportedDate)
     } catch (err) {
       setSaveError('Something went wrong while saving. Some activities may not have been imported — please check your calendar before retrying.')
       setStep('error')
@@ -292,7 +327,19 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
 
         {step === 'saving' && (
           <div className="calendar-modal-body">
-            <p className="calendar-import-hint">Saving activities…</p>
+            <p className="calendar-import-hint">
+              {saveProgress.total > 0
+                ? `Saving ${saveProgress.done} of ${saveProgress.total} activities…`
+                : 'Preparing…'}
+            </p>
+            <div className="calendar-import-progress-track">
+              <div
+                className="calendar-import-progress-fill"
+                style={{
+                  width: saveProgress.total > 0 ? `${(saveProgress.done / saveProgress.total) * 100}%` : '0%',
+                } as CSSProperties}
+              />
+            </div>
           </div>
         )}
 
