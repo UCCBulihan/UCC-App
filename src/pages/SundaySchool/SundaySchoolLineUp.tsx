@@ -1,62 +1,43 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import NavigationBar from '../Home/NavigationBar/NavigationBar'
+import {
+  collection,
+  deleteDoc,
+  doc,
+  documentId,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
+import { auth, db } from "../../firebase/firebase.ts"; 
+import NavigationBar from '../Home/NavigationBar/NavigationBar.tsx';
 import './SundaySchoolLineUp.css';
 
-/* -------------------------------------------------------------------------
- * SundaySchoolLineUp
- * -------------------------------------------------------------------------
- * Styled to match the existing UCC App design system (Members page):
- * white cards, gray-50 inputs, blue-600 primary accent.
- * Headings use Merriweather (700), body/UI uses Source Sans 3 — both
- * already loaded globally via the Google Fonts link in index.html.
- * Icons use Font Awesome 6 classes, already loaded via CDN in index.html.
- * Styling lives in ./SundaySchoolLineUp.css (plain CSS, no Tailwind).
- *
- * `.app-layout` / `.main-content` are assumed to already be styled
- * globally (reused by other pages like Members), so they are NOT
- * redefined here — only the `ssl-*` classes below are new.
- *
- * INTEGRATION POINTS (optional — component works standalone without them):
- *   - `initialData`   : hydrate with roster data you've already fetched
- *                        from your backend.
- *   - `onSave`        : called ~600ms after the user stops typing, with
- *                        the current month's data. Wire this to your
- *                        API/DB call. If omitted, falls back to
- *                        localStorage so it still works on its own.
- *   - `onMonthChange` : called whenever the visible month changes, so
- *                        you can fetch that month's data if needed.
- * ---------------------------------------------------------------------- */
-
-export interface SundayEntry {
+interface SundayEntry {
   teacher: string;
   assistants: string[];
   topic: string;
 }
 
-export type RosterData = Record<string, SundayEntry>; // key: "YYYY-MM-DD"
+type RosterData = Record<string, SundayEntry>; // key: "YYYY-MM-DD"
 
-export interface SundaySchoolLineUpProps {
-  initialData?: RosterData;
-  onSave?: (monthKey: string, monthData: RosterData) => void | Promise<void>;
-  onMonthChange?: (year: number, month: number) => void; // month is 0-indexed
-}
-
+const COLLECTION_NAME = "sundaySchoolLineUp";
+const MAX_NAME_LENGTH = 80;
+const MAX_TOPIC_LENGTH = 120;
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 const ORDINALS = ["First Sunday", "Second Sunday", "Third Sunday", "Fourth Sunday", "Fifth Sunday"];
 const COLLAPSE_THRESHOLD = 3;
-const LOCAL_STORAGE_KEY = "ucc-app:sunday-school-roster";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 function dateKey(year: number, month: number, day: number) {
   return `${year}-${pad(month + 1)}-${pad(day)}`;
-}
-function monthKeyOf(year: number, month: number) {
-  return `${year}-${pad(month + 1)}`;
 }
 function getSundays(year: number, month: number): number[] {
   const days: number[] = [];
@@ -70,43 +51,19 @@ function emptyEntry(): SundayEntry {
   return { teacher: "", assistants: [""], topic: "" };
 }
 
-export default function SundaySchoolLineUp({
-  initialData,
-  onSave,
-  onMonthChange,
-}: SundaySchoolLineUpProps = {}) {
+export default function SundaySchoolLineUp() {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  const [roster, setRoster] = useState<RosterData>(() => {
-    if (initialData) return initialData;
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {
-        /* ignore malformed cache */
-      }
-    }
-    return {};
-  });
-
+  const [roster, setRoster] = useState<RosterData>({});
+  const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState({ text: "", visible: false, saving: false });
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-day debounce timers, so editing one Sunday doesn't reset another's save timer.
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
   const statusHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (initialData) {
-      setRoster((prev) => ({ ...prev, ...initialData }));
-    }
-  }, [initialData]);
-
-  useEffect(() => {
-    onMonthChange?.(viewYear, viewMonth);
-  }, [viewYear, viewMonth, onMonthChange]);
 
   const sundays = useMemo(() => getSundays(viewYear, viewMonth), [viewYear, viewMonth]);
 
@@ -120,42 +77,106 @@ export default function SundaySchoolLineUp({
     }
   }, []);
 
-  const persist = useCallback(
-    async (nextRoster: RosterData) => {
-      const mKey = monthKeyOf(viewYear, viewMonth);
-      const monthSlice: RosterData = {};
-      sundays.forEach((d) => {
-        const k = dateKey(viewYear, viewMonth, d);
-        if (nextRoster[k]) monthSlice[k] = nextRoster[k];
-      });
+  // Live-subscribe to this month's Sunday documents.
+  useEffect(() => {
+    setLoading(true);
+    const startKey = dateKey(viewYear, viewMonth, 1);
+    const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const endKey = dateKey(viewYear, viewMonth, lastDay);
+
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where(documentId(), ">=", startKey),
+      where(documentId(), "<=", endKey),
+      orderBy(documentId())
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setRoster((prev) => {
+          const next = { ...prev };
+          snapshot.forEach((docSnap) => {
+            const key = docSnap.id;
+            // Don't let a server echo clobber an edit that's still pending save.
+            if (saveTimers.current[key]) return;
+            const data = docSnap.data() as Partial<SundayEntry>;
+            next[key] = {
+              teacher: data.teacher ?? "",
+              assistants:
+                Array.isArray(data.assistants) && data.assistants.length
+                  ? (data.assistants as string[])
+                  : [""],
+              topic: data.topic ?? "",
+            };
+          });
+          return next;
+        });
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Failed to load Sunday School roster:", err);
+        showStatus("Couldn't load data");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [viewYear, viewMonth, showStatus]);
+
+  const persistDay = useCallback(
+    async (key: string, entry: SundayEntry) => {
+      const cleaned = {
+        teacher: entry.teacher.trim().slice(0, MAX_NAME_LENGTH),
+        assistants: entry.assistants
+          .map((a) => a.trim().slice(0, MAX_NAME_LENGTH))
+          .filter((a) => a.length > 0),
+        topic: entry.topic.trim().slice(0, MAX_TOPIC_LENGTH),
+      };
+      const isEntirelyEmpty =
+        !cleaned.teacher && cleaned.assistants.length === 0 && !cleaned.topic;
 
       showStatus("Saving...", true);
       try {
-        if (onSave) {
-          await onSave(mKey, monthSlice);
-        } else if (typeof window !== "undefined") {
-          window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextRoster));
+        if (isEntirelyEmpty) {
+          // Nothing left to keep for this Sunday — remove the doc instead of
+          // leaving a blank record behind.
+          await deleteDoc(doc(db, COLLECTION_NAME, key)).catch(() => {});
+        } else {
+          await setDoc(
+            doc(db, COLLECTION_NAME, key),
+            {
+              date: key,
+              ...cleaned,
+              updatedBy: auth.currentUser?.displayName ?? auth.currentUser?.email ?? null,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
         }
         showStatus("Saved");
-      } catch {
+      } catch (err) {
+        console.error("Failed to save Sunday entry:", err);
         showStatus("Couldn't save, try again");
+      } finally {
+        delete saveTimers.current[key];
       }
     },
-    [viewYear, viewMonth, sundays, onSave, showStatus]
+    [showStatus]
   );
 
   const updateEntry = useCallback(
     (day: number, updater: (entry: SundayEntry) => SundayEntry) => {
+      const key = dateKey(viewYear, viewMonth, day);
       setRoster((prev) => {
-        const key = dateKey(viewYear, viewMonth, day);
         const current = prev[key] ?? emptyEntry();
         const next = { ...prev, [key]: updater(current) };
-        if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(() => persist(next), 600);
+        if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
+        saveTimers.current[key] = setTimeout(() => persistDay(key, next[key]), 600);
         return next;
       });
     },
-    [viewYear, viewMonth, persist]
+    [viewYear, viewMonth, persistDay]
   );
 
   function goToMonth(year: number, month: number) {
@@ -190,23 +211,13 @@ export default function SundaySchoolLineUp({
           </div>
 
           <div className="ssl-monthnav">
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous month"
-              className="ssl-iconbtn"
-            >
+            <button type="button" onClick={goPrev} aria-label="Previous month" className="ssl-iconbtn">
               <i className="fa-solid fa-chevron-left" aria-hidden="true" />
             </button>
             <div className="ssl-month-label">
               {MONTHS[viewMonth]} {viewYear}
             </div>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next month"
-              className="ssl-iconbtn"
-            >
+            <button type="button" onClick={goNext} aria-label="Next month" className="ssl-iconbtn">
               <i className="fa-solid fa-chevron-right" aria-hidden="true" />
             </button>
             <button type="button" onClick={goToday} className="ssl-todaybtn">
@@ -216,7 +227,9 @@ export default function SundaySchoolLineUp({
         </div>
 
         <div className="ssl-card">
-          {sundays.length === 0 ? (
+          {loading ? (
+            <div className="ssl-empty">Loading...</div>
+          ) : sundays.length === 0 ? (
             <div className="ssl-empty">No Sundays this month.</div>
           ) : (
             sundays.map((day, idx) => {
@@ -254,6 +267,7 @@ export default function SundaySchoolLineUp({
                         type="text"
                         value={entry.teacher}
                         placeholder="Teacher's name"
+                        maxLength={MAX_NAME_LENGTH}
                         onChange={(e) => {
                           const value = e.target.value;
                           updateEntry(day, (en) => ({ ...en, teacher: value }));
@@ -270,6 +284,7 @@ export default function SundaySchoolLineUp({
                             type="text"
                             value={value}
                             placeholder="Assistant teacher's name"
+                            maxLength={MAX_NAME_LENGTH}
                             onChange={(e) => {
                               const v = e.target.value;
                               updateEntry(day, (en) => {
@@ -328,6 +343,7 @@ export default function SundaySchoolLineUp({
                         type="text"
                         value={entry.topic}
                         placeholder="Topic title"
+                        maxLength={MAX_TOPIC_LENGTH}
                         onChange={(e) => {
                           const value = e.target.value;
                           updateEntry(day, (en) => ({ ...en, topic: value }));
