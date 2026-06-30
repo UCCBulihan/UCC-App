@@ -335,8 +335,8 @@
 }
 
 .calendar-agenda-title {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--cal-text);
 }
 
@@ -379,14 +379,14 @@
 }
 
 .calendar-agenda-group-active .calendar-agenda-group-date {
-  color: var(--color-text-info, #185fa5);
+  color: var(--cal-accent);
 }
 
 .calendar-agenda-group-active {
-  background: var(--color-background-info, #e6f1fb);
+  background: var(--cal-accent-soft);
   border-radius: 8px;
   padding: 8px;
-  margin: -8px;
+  border:1px solid #0e887c;
 }
 
 .calendar-cell-holiday {

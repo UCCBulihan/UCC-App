@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
-import { useEffect, useMemo, useState, type FormEvent, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type CSSProperties } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import ImportActivitiesModal from './ImportActivitiesModal'
 import { CATEGORY_ICONS, getIconColor } from './categoryIcons'
@@ -371,6 +371,23 @@ export default function Calendar() {
       }
     })
   }, [monthAnchor, holidays, activitiesByDate])
+
+  // Maps a date key to its rendered <div> in the agenda list, so the
+  // selected date's group can be scrolled into view without re-rendering
+  // the whole list. Populated via ref callbacks as groups render.
+  const agendaGroupRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Whenever the selected date changes (clicking a day on the grid),
+  // scroll its agenda group into view — only the inner scrollable list
+  // moves ('nearest'), not the whole page. No-ops quietly if that date
+  // has no activities (no group exists to scroll to).
+  useEffect(() => {
+    const key = toKey(selectedDate)
+    const el = agendaGroupRefs.current[key]
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [selectedDate, monthActivities])
 
   // Allow closing modals with Escape, matching standard dialog behavior.
   // Order matters: the delete confirmation sits on top of the category
@@ -934,7 +951,13 @@ export default function Calendar() {
                     .join(' ')
 
                   return (
-                    <div key={group.dateKey} className={groupClassNames}>
+                    <div
+                      key={group.dateKey}
+                      className={groupClassNames}
+                      ref={(el) => {
+                        agendaGroupRefs.current[group.dateKey] = el
+                      }}
+                    >
                       <h3 className="calendar-agenda-group-date">{group.label}</h3>
                       <ul className="calendar-agenda-list">
                         {group.activities.map((activity) => {
