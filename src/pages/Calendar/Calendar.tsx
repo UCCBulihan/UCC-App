@@ -23,6 +23,7 @@ import './calendar.css'
 type Activity = {
   id: string
   time: string
+  endTime?: string // formatted display label, e.g. '10:00 AM'. Absent for whole-day, holidays, and legacy/imported rows that never had a structured end time.
   title: string
   client?: string
   isHoliday?: boolean
@@ -172,6 +173,14 @@ export default function Calendar() {
   const [isDeduping, setIsDeduping] = useState(false)
   const [dedupeStatus, setDedupeStatus] = useState<string | null>(null)
 
+  // Edit/delete for individual activities. Each calendar event is its own
+  // Firestore doc (multi-day activities are pre-expanded one doc per day),
+  // so editing/deleting only ever touches a single occurrence — not a
+  // whole date range.
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
+  const [activityPendingDelete, setActivityPendingDelete] = useState<{ id: string; title: string } | null>(null)
+  const [isDeletingActivity, setIsDeletingActivity] = useState(false)
+
   // Inline edit state for the manage-categories list. Only one row can be
   // in edit mode at a time; editDraft holds the in-progress name/color
   // until the user saves or cancels.
@@ -241,6 +250,7 @@ export default function Calendar() {
           events[data.date].push({
             id: doc.id,
             time: data.time,
+            endTime: data.endTime || undefined,
             title: data.title,
             categoryId: data.categoryId
           });
@@ -366,18 +376,19 @@ export default function Calendar() {
   // Order matters: the delete confirmation sits on top of the category
   // modal, which sits on top of the activity modal.
   useEffect(() => {
-    if (!isModalOpen && !isCategoryModalOpen && !isImportModalOpen) return
+    if (!isModalOpen && !isCategoryModalOpen && !isImportModalOpen && !activityPendingDelete) return
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      if (categoryPendingDelete) setCategoryPendingDelete(null)
+      if (activityPendingDelete) cancelDeleteActivity()
+      else if (categoryPendingDelete) setCategoryPendingDelete(null)
       else if (editingCategoryId) cancelEditCategory()
       else if (isCategoryModalOpen) setIsCategoryModalOpen(false)
       else if (isImportModalOpen) setIsImportModalOpen(false)
-      else setIsModalOpen(false)
+      else closeModal()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isModalOpen, isCategoryModalOpen, isImportModalOpen, categoryPendingDelete, editingCategoryId])
+  }, [isModalOpen, isCategoryModalOpen, isImportModalOpen, categoryPendingDelete, editingCategoryId, activityPendingDelete])
 
   function goToPrevMonth() {
     setMonthAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -393,13 +404,79 @@ export default function Calendar() {
   }
 
   function openNewActivityModal() {
+    setEditingActivityId(null)
     setDraft(createEmptyDraft(selectedDate, categories[0]?.id ?? null))
+    setFormError(null)
+    setIsModalOpen(true)
+  }
+
+  // Inverse of formatTimeLabel — turns a stored display label like
+  // "2:30 PM" back into a 24-hour "HH:MM" string for the <input type="time">
+  // field. Falls back to a sane default if the label doesn't match (e.g.
+  // "Whole day", or anything unexpected from older data).
+  function parseTimeLabel(label: string): string {
+    const match = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (!match) return '09:00'
+    let hour = Number(match[1])
+    const minute = match[2]
+    const period = match[3].toUpperCase()
+    if (period === 'PM' && hour !== 12) hour += 12
+    if (period === 'AM' && hour === 12) hour = 0
+    return `${String(hour).padStart(2, '0')}:${minute}`
+  }
+
+  // Used to seed a sensible End time default when editing an older/imported
+  // activity that has a start time but never had a stored end time.
+  function addOneHour(time24: string): string {
+    const [hourStr, minuteStr] = time24.split(':')
+    const hour = (Number(hourStr) + 1) % 24
+    return `${String(hour).padStart(2, '0')}:${minuteStr}`
+  }
+
+  function openEditActivityModal(activity: Activity, dateKey: string) {
+    const isWholeDay = activity.time === 'Whole day'
+    const startTime = isWholeDay ? '09:00' : parseTimeLabel(activity.time)
+    setDraft({
+      title: activity.title,
+      startDate: dateKey,
+      endDate: dateKey,
+      startTime,
+      // Older/imported activities may not have a stored end time — fall
+      // back to an hour after the start so the field still has a sensible,
+      // valid value if the user enables it.
+      endTime: isWholeDay ? '10:00' : activity.endTime ? parseTimeLabel(activity.endTime) : addOneHour(startTime),
+      isWholeDay,
+      categoryId: activity.categoryId ?? null,
+    })
+    setEditingActivityId(activity.id)
     setFormError(null)
     setIsModalOpen(true)
   }
 
   function closeModal() {
     setIsModalOpen(false)
+    setEditingActivityId(null)
+  }
+
+  function requestDeleteActivity(activity: Activity) {
+    setActivityPendingDelete({ id: activity.id, title: activity.title })
+  }
+
+  function cancelDeleteActivity() {
+    setActivityPendingDelete(null)
+  }
+
+  async function confirmDeleteActivity() {
+    if (!activityPendingDelete) return
+    setIsDeletingActivity(true)
+    try {
+      await deleteDoc(doc(db, 'CALENDAR_EVENTS', activityPendingDelete.id))
+    } catch (err) {
+      window.alert('Could not delete activity. Please try again.')
+    } finally {
+      setIsDeletingActivity(false)
+      setActivityPendingDelete(null)
+    }
   }
 
   function openImportModal() {
@@ -433,6 +510,7 @@ export default function Calendar() {
         const key = [
           data.date ?? '',
           data.time ?? '',
+          data.endTime ?? '',
           data.title ?? '',
           data.categoryId ?? '',
           data.inCharge ?? '',
@@ -626,6 +704,17 @@ export default function Calendar() {
     return `${displayHour}:${minuteStr} ${period}`
   }
 
+  // What actually shows in the agenda/grid for an activity's time slot:
+  // the full range when an end time was saved, otherwise just the single
+  // stored label (covers "Whole day", holidays, and older/imported rows
+  // that never had a structured end time).
+  function formatActivityTimeRange(activity: Activity): string {
+    if (activity.isHoliday) return 'Holiday'
+    if (activity.time === 'Whole day') return 'Whole day'
+    if (activity.endTime) return `${activity.time} \u2013 ${activity.endTime}`
+    return activity.time
+  }
+
   async function handleSubmitActivity(event: FormEvent){
     event.preventDefault()
 
@@ -634,6 +723,40 @@ export default function Calendar() {
       setFormError('Activity name is required.')
       return
     }
+
+    // Edit mode: update the single existing doc in place — no date-range
+    // expansion, since one occurrence is exactly one Firestore doc.
+    if (editingActivityId) {
+      if (!draft.isWholeDay && draft.endTime <= draft.startTime) {
+        setFormError('End time must be after the start time.')
+        return
+      }
+
+      try {
+        await updateDoc(doc(db, 'CALENDAR_EVENTS', editingActivityId), {
+          title: trimmedTitle,
+          date: draft.startDate,
+          time: draft.isWholeDay ? 'Whole day' : formatTimeLabel(draft.startTime),
+          endTime: draft.isWholeDay ? null : formatTimeLabel(draft.endTime),
+          categoryId: draft.categoryId,
+        })
+      } catch (err) {
+        setFormError('Could not save changes. Please try again.')
+        return
+      }
+
+      // If the edited date falls outside the visible month, jump there so
+      // the change is actually visible — same convention as the import flow.
+      const [y, m] = draft.startDate.split('-').map(Number)
+      if (y !== monthAnchor.getFullYear() || m - 1 !== monthAnchor.getMonth()) {
+        setMonthAnchor(new Date(y, m - 1, 1))
+      }
+
+      setIsModalOpen(false)
+      setEditingActivityId(null)
+      return
+    }
+
     if (draft.endDate < draft.startDate) {
       setFormError('End date cannot be before the start date.')
       return
@@ -661,6 +784,7 @@ export default function Calendar() {
           time: draft.isWholeDay
             ? "Whole day"
             : formatTimeLabel(draft.startTime),
+          endTime: draft.isWholeDay ? null : formatTimeLabel(draft.endTime),
           categoryId: draft.categoryId,
           createdAt: serverTimestamp()
         }
@@ -834,7 +958,7 @@ export default function Calendar() {
                               }
                             >
                               <span className="calendar-agenda-time" style={tagStyle}>
-                                {activity.isHoliday ? 'Holiday' : activity.time}
+                                {formatActivityTimeRange(activity)}
                               </span>
                               <div className="calendar-agenda-details">
                                 <span className="calendar-agenda-title">{activity.title}</span>
@@ -846,6 +970,28 @@ export default function Calendar() {
                                 )}
                                 {activity.client && <span className="calendar-agenda-client">{activity.client}</span>}
                               </div>
+                              {!activity.isHoliday && (
+                                <div className="calendar-agenda-item-actions">
+                                  <button
+                                    type="button"
+                                    className="calendar-agenda-action calendar-agenda-action-edit"
+                                    onClick={() => openEditActivityModal(activity, group.dateKey)}
+                                    aria-label={`Edit ${activity.title}`}
+                                    title="Edit"
+                                  >
+                                    <i className="fa-solid fa-pen" aria-hidden="true" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="calendar-agenda-action calendar-agenda-action-delete"
+                                    onClick={() => requestDeleteActivity(activity)}
+                                    aria-label={`Delete ${activity.title}`}
+                                    title="Delete"
+                                  >
+                                    <i className="fa-solid fa-trash" aria-hidden="true" />
+                                  </button>
+                                </div>
+                              )}
                             </li>
                           )
                         })}
@@ -868,7 +1014,7 @@ export default function Calendar() {
               >
                 <div className="calendar-modal-header">
                   <h2 className="calendar-modal-title" id="new-activity-title">
-                    New activity
+                    {editingActivityId ? 'Edit activity' : 'New activity'}
                   </h2>
                   <button type="button" className="calendar-modal-close" onClick={closeModal} aria-label="Close">
                     ✕
@@ -895,7 +1041,7 @@ export default function Calendar() {
                     <div className="calendar-field-row">
                       <div className="calendar-field">
                         <label className="calendar-field-label" htmlFor="activity-start-date">
-                          Start date
+                          {editingActivityId ? 'Date' : 'Start date'}
                         </label>
                         <input
                           id="activity-start-date"
@@ -905,23 +1051,25 @@ export default function Calendar() {
                           onChange={(e) => {
                             const value = e.target.value
                             updateDraft('startDate', value)
-                            if (draft.endDate < value) updateDraft('endDate', value)
+                            if (editingActivityId || draft.endDate < value) updateDraft('endDate', value)
                           }}
                         />
                       </div>
-                      <div className="calendar-field">
-                        <label className="calendar-field-label" htmlFor="activity-end-date">
-                          End date
-                        </label>
-                        <input
-                          id="activity-end-date"
-                          type="date"
-                          className="calendar-input"
-                          value={draft.endDate}
-                          min={draft.startDate}
-                          onChange={(e) => updateDraft('endDate', e.target.value)}
-                        />
-                      </div>
+                      {!editingActivityId && (
+                        <div className="calendar-field">
+                          <label className="calendar-field-label" htmlFor="activity-end-date">
+                            End date
+                          </label>
+                          <input
+                            id="activity-end-date"
+                            type="date"
+                            className="calendar-input"
+                            value={draft.endDate}
+                            min={draft.startDate}
+                            onChange={(e) => updateDraft('endDate', e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="calendar-checkbox-row">
@@ -1014,10 +1162,33 @@ export default function Calendar() {
                       Cancel
                     </button>
                     <button type="submit" className="calendar-btn calendar-btn-primary">
-                      Save activity
+                      {editingActivityId ? 'Save changes' : 'Save activity'}
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {activityPendingDelete && (
+            <div className="calendar-confirm-overlay" onClick={cancelDeleteActivity}>
+              <div className="calendar-confirm-box" onClick={(e) => e.stopPropagation()}>
+                <p className="calendar-confirm-text">
+                  Delete <strong>{activityPendingDelete.title}</strong>? This cannot be undone.
+                </p>
+                <div className="calendar-confirm-actions">
+                  <button type="button" className="calendar-btn calendar-btn-ghost" onClick={cancelDeleteActivity}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-btn calendar-btn-danger"
+                    onClick={confirmDeleteActivity}
+                    disabled={isDeletingActivity}
+                  >
+                    {isDeletingActivity ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
