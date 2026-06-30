@@ -801,3 +801,36 @@
     overflow-y: visible;
   }
 }
+
+/* ===== Mobile overflow fix ===== */
+
+/* 1. Force the single grid column to never exceed its own track width.
+      `1fr` alone allows children to push the track wider; minmax(0,1fr)
+      clamps it to zero minimum so overflow stays inside. */
+@media (max-width: 860px) {
+  .calendar-page {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  /* Both direct grid children need min-width: 0 so their own content
+     (the calendar grid, the agenda list) can't push them wider than the
+     column track either. */
+  .calendar-card,
+  .calendar-agenda {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* 2. Let the right-side toolbar buttons wrap onto a second line instead
+        of forcing the card to be as wide as all buttons in one row. */
+  .calendar-toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  /* 3. Tighten button padding on small screens so they take less space. */
+  .calendar-toolbar-right .calendar-btn {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+}
