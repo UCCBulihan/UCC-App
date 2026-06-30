@@ -61,6 +61,17 @@ export const DEFAULT_CATEGORY_COLORS: Record<ImportCategoryName, string> = {
   'Departmental Meetings': '#d97706',
 }
 
+// Default FontAwesome icon for each import category, used the same way as
+// DEFAULT_CATEGORY_COLORS above — only applied when the category is newly
+// created by an import, never overwrites an existing category's icon.
+export const DEFAULT_CATEGORY_ICONS: Record<ImportCategoryName, string> = {
+  National: 'fa-solid fa-globe',
+  District: 'fa-solid fa-map-marker-alt',
+  Local: 'fa-solid fa-church',
+  'Pledges & Special Offerings': 'fa-solid fa-hand-holding-dollar',
+  'Departmental Meetings': 'fa-solid fa-briefcase',
+}
+
 // ARGB fill colors as they appear in this specific workbook's color guide.
 // '00000000' is openpyxl/xlsx's representation of "no fill" (transparent),
 // which this sheet uses interchangeably with explicit white for National.
@@ -264,4 +275,4 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
   }
 
   return { events, issues }
-} 
+}

@@ -527,7 +527,7 @@
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: none;
+  border: 2px solid transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -620,6 +620,71 @@
   height: 8px;
   border-radius: 999px;
   flex-shrink: 0;
+}
+
+/* ---------- Category icons ---------- */
+/* Renders in place of the plain color dot wherever a category has an icon
+   set (chip row, manage list, agenda tag, import preview). Sized to sit
+   on the same baseline as the dot it replaces. */
+
+.calendar-category-icon {
+  font-size: 13px;
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.calendar-category-icon-inline {
+  font-size: 11px;
+  width: 12px;
+}
+
+.calendar-agenda-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Icon picker grid shown in the New/Edit category form, directly under the
+   color swatch row. Square buttons (vs. the round color swatches) so the
+   two pickers read as visually distinct steps. */
+
+.calendar-icon-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-icon-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--cal-radius-sm);
+  border: 1px solid var(--cal-border);
+  background: var(--cal-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--cal-text-secondary);
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.calendar-icon-swatch:hover {
+  border-color: var(--cal-border-strong);
+  transform: scale(1.05);
+}
+
+.calendar-icon-swatch-selected {
+  border-color: var(--cal-accent);
+  background: var(--cal-accent-soft);
+  box-shadow: 0 0 0 2px var(--cal-surface), 0 0 0 3px var(--cal-accent);
+}
+
+.calendar-icon-swatch-none {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cal-text-tertiary);
 }
 
 /* ---------- Manage categories list ---------- */

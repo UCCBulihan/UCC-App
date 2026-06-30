@@ -10,15 +10,18 @@ import { db } from '../../firebase/firebase'
 import {
   parseMinistryPlanWorkbook,
   DEFAULT_CATEGORY_COLORS,
+  DEFAULT_CATEGORY_ICONS,
   type ParsedImportEvent,
   type ImportIssue,
   type ImportCategoryName,
 } from './importExcel'
+import { getIconColor } from './categoryIcons'
 
 type Category = {
   id: string
   name: string
   color: string
+  icon?: string
 }
 
 type Props = {
@@ -105,6 +108,7 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
       const docRef = await addDoc(collection(db, 'CATEGORIES'), {
         name,
         color: DEFAULT_CATEGORY_COLORS[name],
+        icon: DEFAULT_CATEGORY_ICONS[name],
         createdAt: serverTimestamp(),
       })
       idByName.set(name, docRef.id)
@@ -285,7 +289,9 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
                 <tbody>
                   {normalRows.map((row) => {
                     const actualIndex = rows.indexOf(row)
-                    const existingColor = categoryByName.get(row.category)?.color ?? DEFAULT_CATEGORY_COLORS[row.category]
+                    const existingCategory = categoryByName.get(row.category)
+                    const existingColor = existingCategory?.color ?? DEFAULT_CATEGORY_COLORS[row.category]
+                    const existingIcon = existingCategory?.icon ?? DEFAULT_CATEGORY_ICONS[row.category]
                     return (
                       <tr key={`${row.sourceRow}-${row.date}`} className={row.included ? '' : 'calendar-import-row-excluded'}>
                         <td className="calendar-import-cell-checkbox">
@@ -294,10 +300,17 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
                         <td data-label="Date">{row.date}</td>
                         <td data-label="Activity" className="calendar-import-cell-title">{row.title}</td>
                         <td data-label="Category">
-                          <span
-                            className="calendar-category-chip-dot"
-                            style={{ background: existingColor, display: 'inline-block', marginRight: 6 } as CSSProperties}
-                          />
+                          {existingIcon ? (
+                            <i
+                              className={existingIcon}
+                              style={{ color: getIconColor(existingIcon, existingColor), marginRight: 6 } as CSSProperties}
+                            />
+                          ) : (
+                            <span
+                              className="calendar-category-chip-dot"
+                              style={{ background: existingColor, display: 'inline-block', marginRight: 6 } as CSSProperties}
+                            />
+                          )}
                           {row.category}
                         </td>
                         <td data-label="In-charge">{row.inCharge}</td>

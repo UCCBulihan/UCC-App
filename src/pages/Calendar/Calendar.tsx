@@ -16,6 +16,7 @@ import { db } from "../../firebase/firebase";
 import { useEffect, useMemo, useState, type FormEvent, type CSSProperties } from 'react'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
 import ImportActivitiesModal from './ImportActivitiesModal'
+import { CATEGORY_ICONS, getIconColor } from './categoryIcons'
 import './calendar_import_additions.css'
 import './calendar.css'
 
@@ -38,6 +39,7 @@ type Category = {
   id: string
   name: string
   color: string
+  icon?: string // FontAwesome class string, e.g. 'fa-solid fa-church'. Optional so older categories without one still render fine (falls back to the color dot).
 }
 
 type NewActivityDraft = {
@@ -53,33 +55,46 @@ type NewActivityDraft = {
 type NewCategoryDraft = {
   name: string
   color: string
+  icon: string // '' means "no icon" — falls back to the plain color dot
 }
 
 // Color swatches offered when creating a category. Kept short and
 // distinct so they stay legible as both a dot on the grid and a tag
 // in the agenda — swap/extend freely, just keep contrast against white.
 const CATEGORY_COLORS = [
-  { value: '#0b6e64', label: 'Teal' },
-  { value: '#2563eb', label: 'Blue' },
-  { value: '#7c3aed', label: 'Purple' },
-  { value: '#db2777', label: 'Pink' },
-  { value: '#330069', label: 'Amber' },
-  { value: '#dc2626', label: 'Red' },
-  { value: '#16a34a', label: 'Green' },
-  { value: '#525252', label: 'Slate' },
-  { value: '#0891b2', label: 'Cyan' },
-  { value: '#4f46e5', label: 'Indigo' },
-  { value: '#65a30d', label: 'Lime' },
-  { value: '#ea580c', label: 'Orange' },
-  { value: '#be123c', label: 'Rose' },
-  { value: '#a16207', label: 'Gold' },
-  { value: '#9333ea', label: 'Violet' },
-  { value: '#0f766e', label: 'Dark Teal' },
-  { value: '#1d4ed8', label: 'Royal Blue' },
-  { value: '#15803d', label: 'Emerald' },
-  { value: '#c2410c', label: 'Burnt Orange' },
-  { value: '#7f1d1d', label: 'Maroon' },
+  { value: '#71aba5', label: 'Teal' },
+  { value: '#81a5f3', label: 'Blue' },
+  { value: '#b38df5', label: 'Purple' },
+  { value: '#ea82b0', label: 'Pink' },
+  { value: '#896ba8', label: 'Amber' },
+  { value: '#eb8181', label: 'Red' },
+  { value: '#78ca96', label: 'Green' },
+  { value: '#9b9b9b', label: 'Slate' },
+  { value: '#70bfd2', label: 'Cyan' },
+  { value: '#9994f0', label: 'Indigo' },
+  { value: '#a6ca73', label: 'Lime' },
+  { value: '#f39e72', label: 'Orange' },
+  { value: '#d9768e', label: 'Rose' },
+  { value: '#c8a46f', label: 'Gold' },
+  { value: '#c089f3', label: 'Violet' },
+  { value: '#74b0ab', label: 'Dark Teal' },
+  { value: '#7c98e8', label: 'Royal Blue' },
+  { value: '#77b58e', label: 'Emerald' },
+  { value: '#dc9172', label: 'Burnt Orange' },
+  { value: '#b57c7c', label: 'Maroon' },
 ] as const
+
+// Darkens a hex color by mixing it toward black — used to give each color
+// swatch a subtly darker border in its own shade, instead of one flat
+// border color that wouldn't suit every swatch equally.
+function darkenColor(hex: string, amount = 0.18): string {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  const mix = (c: number) => Math.round(c * (1 - amount))
+  return `#${[r, g, b].map((c) => mix(c).toString(16).padStart(2, '0')).join('')}`
+}
 
 function createEmptyDraft(initialDate: Date, defaultCategoryId: string | null): NewActivityDraft {
   const key = toKey(initialDate)
@@ -95,7 +110,7 @@ function createEmptyDraft(initialDate: Date, defaultCategoryId: string | null): 
 }
 
 function createEmptyCategoryDraft(): NewCategoryDraft {
-  return { name: '', color: CATEGORY_COLORS[0].value }
+  return { name: '', color: CATEGORY_COLORS[0].value, icon: CATEGORY_ICONS[0].value }
 }
 
 
@@ -251,6 +266,7 @@ export default function Calendar() {
             id: docSnap.id,
             name: data.name,
             color: data.color,
+            icon: data.icon || undefined,
           })
         })
         // Keep a stable order so the chip/swatch rows don't jump around
@@ -277,6 +293,30 @@ export default function Calendar() {
   function getCategoryById(categoryId: string | undefined): Category | undefined {
     if (!categoryId) return undefined
     return categories.find((c) => c.id === categoryId)
+  }
+
+  // Renders a category's marker: its FontAwesome icon — tinted with that
+  // icon's OWN fixed color (e.g. the birthday cake is always pink, the
+  // trophy is always gold), independent of the category's color — when one
+  // is set, otherwise the original plain category-color dot, so categories
+  // created before icons existed still look right.
+  function renderCategoryGlyph(cat: Category | undefined, extraClassName = '') {
+    if (!cat) return null
+    if (cat.icon) {
+      return (
+        <i
+          className={`${cat.icon} calendar-category-icon ${extraClassName}`.trim()}
+          style={{ color: getIconColor(cat.icon, cat.color) } as CSSProperties}
+          aria-hidden="true"
+        />
+      )
+    }
+    return (
+      <span
+        className={`calendar-category-chip-dot ${extraClassName}`.trim()}
+        style={{ background: cat.color }}
+      />
+    )
   }
 
   // Counts how many activities reference a category, across all dates —
@@ -514,6 +554,7 @@ export default function Calendar() {
       const newDocRef = await addDoc(collection(db, "CATEGORIES"), {
         name: trimmedName,
         color: categoryDraft.color,
+        icon: categoryDraft.icon || null,
         createdAt: serverTimestamp(),
       })
       // Immediately select the freshly-created category on the activity form.
@@ -527,7 +568,7 @@ export default function Calendar() {
   function startEditCategory(category: Category) {
     setCategoryPendingDelete(null)
     setEditingCategoryId(category.id)
-    setEditDraft({ name: category.name, color: category.color })
+    setEditDraft({ name: category.name, color: category.color, icon: category.icon ?? '' })
     setEditFormError(null)
   }
 
@@ -564,6 +605,7 @@ export default function Calendar() {
       await updateDoc(doc(db, "CATEGORIES", categoryId), {
         name: trimmedName,
         color: editDraft.color,
+        icon: editDraft.icon || null,
       })
       cancelEditCategory()
     } catch (err) {
@@ -797,7 +839,10 @@ export default function Calendar() {
                               <div className="calendar-agenda-details">
                                 <span className="calendar-agenda-title">{activity.title}</span>
                                 {category && !activity.isHoliday && (
-                                  <span className="calendar-agenda-client">{category.name}</span>
+                                  <span className="calendar-agenda-client calendar-agenda-category">
+                                    {renderCategoryGlyph(category, 'calendar-category-icon-inline')}
+                                    {category.name}
+                                  </span>
                                 )}
                                 {activity.client && <span className="calendar-agenda-client">{activity.client}</span>}
                               </div>
@@ -952,7 +997,7 @@ export default function Calendar() {
                                 onClick={() => updateDraft('categoryId', cat.id)}
                                 aria-pressed={isSelected}
                               >
-                                <span className="calendar-category-chip-dot" style={{ background: cat.color }} />
+                                {renderCategoryGlyph(cat)}
                                 {cat.name}
                               </button>
                             )
@@ -1053,13 +1098,37 @@ export default function Calendar() {
                                             className={
                                               isColorSelected ? 'calendar-swatch calendar-swatch-selected' : 'calendar-swatch'
                                             }
-                                            style={{ background: c.value, '--cal-swatch-color': c.value } as CSSProperties}
+                                            style={{ background: c.value, borderColor: darkenColor(c.value), '--cal-swatch-color': c.value } as CSSProperties}
                                             onClick={() => updateEditDraft('color', c.value)}
                                             aria-label={c.label}
                                             aria-pressed={isColorSelected}
                                             title={c.label}
                                           >
                                             {isColorSelected && <span className="calendar-swatch-check">✓</span>}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                    <div className="calendar-icon-row">
+                                      {CATEGORY_ICONS.map((ic) => {
+                                        const isIconSelected = editDraft.icon === ic.value
+                                        return (
+                                          <button
+                                            key={ic.value || 'none'}
+                                            type="button"
+                                            className={
+                                              isIconSelected ? 'calendar-icon-swatch calendar-icon-swatch-selected' : 'calendar-icon-swatch'
+                                            }
+                                            onClick={() => updateEditDraft('icon', ic.value)}
+                                            aria-label={ic.label}
+                                            aria-pressed={isIconSelected}
+                                            title={ic.label}
+                                          >
+                                            {ic.value ? (
+                                              <i className={ic.value} style={{ color: ic.color } as CSSProperties} />
+                                            ) : (
+                                              <span className="calendar-icon-swatch-none">—</span>
+                                            )}
                                           </button>
                                         )
                                       })}
@@ -1090,7 +1159,7 @@ export default function Calendar() {
 
                             return (
                               <li key={cat.id} className="calendar-manage-row">
-                                <span className="calendar-category-chip-dot" style={{ background: cat.color }} />
+                                {renderCategoryGlyph(cat)}
                                 <span className="calendar-manage-row-name">{cat.name}</span>
                                 {usageCount > 0 && (
                                   <span className="calendar-manage-row-count">
@@ -1168,13 +1237,41 @@ export default function Calendar() {
                                 key={c.value}
                                 type="button"
                                 className={isSelected ? 'calendar-swatch calendar-swatch-selected' : 'calendar-swatch'}
-                                style={{ background: c.value, '--cal-swatch-color': c.value } as CSSProperties}
+                                style={{ background: c.value, borderColor: darkenColor(c.value), '--cal-swatch-color': c.value } as CSSProperties}
                                 onClick={() => updateCategoryDraft('color', c.value)}
                                 aria-label={c.label}
                                 aria-pressed={isSelected}
                                 title={c.label}
                               >
                                 {isSelected && <span className="calendar-swatch-check">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="calendar-field">
+                        <span className="calendar-field-label">Icon (optional)</span>
+                        <div className="calendar-icon-row">
+                          {CATEGORY_ICONS.map((ic) => {
+                            const isIconSelected = categoryDraft.icon === ic.value
+                            return (
+                              <button
+                                key={ic.value || 'none'}
+                                type="button"
+                                className={
+                                  isIconSelected ? 'calendar-icon-swatch calendar-icon-swatch-selected' : 'calendar-icon-swatch'
+                                }
+                                onClick={() => updateCategoryDraft('icon', ic.value)}
+                                aria-label={ic.label}
+                                aria-pressed={isIconSelected}
+                                title={ic.label}
+                              >
+                                {ic.value ? (
+                                  <i className={ic.value} style={{ color: ic.color } as CSSProperties} />
+                                ) : (
+                                  <span className="calendar-icon-swatch-none">—</span>
+                                )}
                               </button>
                             )
                           })}
