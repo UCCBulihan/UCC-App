@@ -7,6 +7,11 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 export type RoleLevel = 'Admin' | 'Moderator' | 'Member' | 'Viewer';
 
+export interface DepartmentAssignment {
+  departmentId: string;
+  position: string; // e.g. 'Treasurer' — independent per department
+}
+
 export interface UserRole {
   id: string;
   uid: string;
@@ -20,7 +25,7 @@ export interface UserRole {
   modifiedDate?: string;
   provider: string;
   lastLogin?: string;
-  departmentId?: string | null;
+  departments: DepartmentAssignment[]; // a user can belong to many departments
 }
 
 export interface RoleFormState {
@@ -71,6 +76,20 @@ export function useRoles() {
     const unsub = onSnapshot(collection(db, 'USERS'), (snapshot) => {
       const list: UserRole[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data() as any;
+
+        // Back-compat: older docs may still have a single `departmentId`
+        // string instead of the new `departments` array. Fold it in so
+        // existing assignments aren't lost after this migration.
+        let departments: DepartmentAssignment[] = Array.isArray(data.departments)
+          ? data.departments
+              .filter((d: any) => d && typeof d.departmentId === 'string')
+              .map((d: any) => ({ departmentId: d.departmentId, position: d.position || '' }))
+          : [];
+
+        if (departments.length === 0 && typeof data.departmentId === 'string' && data.departmentId) {
+          departments = [{ departmentId: data.departmentId, position: '' }];
+        }
+
         return {
           id:           docSnap.id,
           uid:          data.uid || docSnap.id,
@@ -83,7 +102,7 @@ export function useRoles() {
           dateAssigned: data.dateAssigned || '',
           modifiedBy:   data.modifiedBy || '',
           modifiedDate: data.modifiedDate || '',
-          departmentId: data.departmentId ?? null,
+          departments,
         };
       });
 

@@ -17,6 +17,7 @@ interface Props {
   userSearch: string;
   onUserSearchChange: (val: string) => void;
   assignedUserCount: (departmentId: string) => number;
+  getAssignment: (user: UserRole, departmentId: string) => { departmentId: string; position: string } | undefined;
   onClose: () => void;
   onCreateNew: () => void;
   onEdit: (department: Department) => void;
@@ -27,6 +28,7 @@ interface Props {
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
   onToggleUserAssignment: (department: Department, user: UserRole) => void;
+  onUpdateUserPosition: (department: Department, user: UserRole, position: string) => void;
 }
 
 function avatarFallback(name: string) {
@@ -39,9 +41,9 @@ function avatarFallback(name: string) {
 export default function DepartmentsModal({
   isOpen, view, departments, totalCount, loading, search, onSearchChange,
   editingDepartment, form, formError, pendingDelete,
-  userRoles, userSearch, onUserSearchChange, assignedUserCount,
+  userRoles, userSearch, onUserSearchChange, assignedUserCount, getAssignment,
   onClose, onCreateNew, onEdit, onBackToList, onFormChange, onSave,
-  onRequestDelete, onCancelDelete, onConfirmDelete, onToggleUserAssignment,
+  onRequestDelete, onCancelDelete, onConfirmDelete, onToggleUserAssignment, onUpdateUserPosition,
 }: Props) {
   const isEdit = !!editingDepartment;
 
@@ -169,7 +171,7 @@ export default function DepartmentsModal({
             </div>
 
             <div className="field">
-              <label htmlFor="position">Position</label>
+              <label htmlFor="position">Default Position</label>
               <div className="input-wrap">
                 <i className="fa-solid fa-id-badge icon" aria-hidden="true" />
                 <input
@@ -180,6 +182,7 @@ export default function DepartmentsModal({
                   onChange={onFormChange}
                 />
               </div>
+              <p className="role-hint">Used as the starting position when a user is newly assigned — editable per person below.</p>
             </div>
 
             <div className="field">
@@ -211,6 +214,10 @@ export default function DepartmentsModal({
                 <p className="section-label">
                   Assigned Users ({assignedUserCount(editingDepartment.id)})
                 </p>
+                <p className="role-hint" style={{ marginTop: -6, marginBottom: 10 }}>
+                  A person can belong to more than one department — check them here and give
+                  them a position specific to <strong>{editingDepartment.name}</strong>.
+                </p>
                 <div className="search-wrap dept-search">
                   <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
                   <input
@@ -225,9 +232,10 @@ export default function DepartmentsModal({
                     <p className="dept-checklist-empty">No users found.</p>
                   ) : (
                     visibleUsers.map((u) => {
-                      const checked = u.departmentId === editingDepartment.id;
+                      const assignment = getAssignment(u, editingDepartment.id);
+                      const checked = !!assignment;
                       return (
-                        <label key={u.id} className="dept-user-row">
+                        <div key={u.id} className="dept-user-row">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -249,7 +257,17 @@ export default function DepartmentsModal({
                             <span className="member-name">{u.displayName || '—'}</span>
                             <span className="user-email">{u.email}</span>
                           </span>
-                        </label>
+                          {checked && (
+                            <input
+                              type="text"
+                              className="dept-user-position-input"
+                              placeholder="Position (e.g. Treasurer)"
+                              value={assignment?.position || ''}
+                              onChange={(e) => onUpdateUserPosition(editingDepartment, u, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                        </div>
                       );
                     })
                   )}
@@ -279,7 +297,7 @@ export default function DepartmentsModal({
                     {' '}
                     {assignedUserCount(pendingDelete.id)}{' '}
                     user{assignedUserCount(pendingDelete.id) === 1 ? '' : 's'} assigned to this department will
-                    become unassigned.
+                    lose this assignment (their other departments are unaffected).
                   </>
                 )}
               </p>

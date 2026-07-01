@@ -133,55 +133,9 @@
   border: 1px solid #e2e8f0;
 }
 
-/* ── Fix icon/text overlap inside department modal fields ──
-   roles.css positions .icon with `position: absolute`, which was
-   overlapping the input text here. !important forces this flex-based
-   layout to win regardless of roles.css's rule order/specificity. */
-.modal-wide .field .input-wrap {
-  position: relative !important;
-  display: flex !important;
-  align-items: center !important;
-  border: 1.5px solid #d1d5db;
-  border-radius: 10px;
-  background: #fff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.modal-wide .field .input-wrap:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
-}
-
-.modal-wide .field .input-wrap .icon {
-  position: static !important;
-  flex-shrink: 0 !important;
-  width: 16px;
-  margin-left: 12px;
-  transform: none !important;
-  top: auto !important;
-  left: auto !important;
-  color: #9ca3af;
-  font-size: 14px;
-  pointer-events: none;
-}
-
-.modal-wide .field .input-wrap input {
-  flex: 1 !important;
-  min-width: 0;
-  border: none !important;
-  outline: none;
-  background: transparent;
-  padding: 9px 12px 9px 8px !important;
-  font-size: 14.5px;
-  color: #111827;
-  font-family: 'Source Sans 3', sans-serif;
-}
-
-.modal-wide .field .input-wrap input::placeholder {
-  color: #c0c4cc;
-}
-
-/* ── Department form extras ── */
+/* ── Department form extras ──
+   (icon/input overlap was fixed at the source in roles.css itself —
+   see the .input-wrap block there — so no override needed here.) */
 .dept-textarea {
   display: block;
   width: 100%;
@@ -251,7 +205,6 @@
   gap: 10px;
   padding: 7px 8px;
   border-radius: 8px;
-  cursor: pointer;
   transition: background 0.12s ease;
 }
 
@@ -267,6 +220,44 @@
   flex-shrink: 0;
 }
 
+.dept-user-position-input {
+  width: 140px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dept-user-position-input::placeholder {
+  color: #c0c4cc;
+}
+
+.dept-user-position-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* ── Multiple department badges per user (Roles table) ── */
+.department-badge-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: normal;
+}
+
+.department-badge-position {
+  font-weight: 500;
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
 .dept-user-avatar {
   width: 28px;
   height: 28px;
@@ -279,6 +270,7 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  flex: 1;
 }
 
 .dept-user-info .member-name {

@@ -53,7 +53,7 @@ export default function RolesTable({
               <th>Role</th>
               <th>Assigned By</th>
               <th>Date Assigned</th>
-              <th>Department</th>
+              <th>Departments</th>
               <th></th>
             </tr>
           </thead>
@@ -75,7 +75,7 @@ export default function RolesTable({
               </tr>
             ) : (
               filtered.map((u) => {
-                const department = u.departmentId ? departmentById.get(u.departmentId) : undefined;
+                const assignments = u.departments || [];
                 return (
                 <tr key={u.id}>
 
@@ -144,13 +144,22 @@ export default function RolesTable({
                     <span className="date-text">{u.dateAssigned || '—'}</span>
                   </td>
 
-                  {/* Department */}
+                  {/* Departments (can be multiple, each with its own position) */}
                   <td>
-                    {department ? (
-                      <span className="department-badge">
-                        <i className="fa-solid fa-sitemap" aria-hidden="true" />
-                        {department.name}
-                      </span>
+                    {assignments.length > 0 ? (
+                      <div className="department-badge-stack">
+                        {assignments.map((a) => {
+                          const dept = departmentById.get(a.departmentId);
+                          if (!dept) return null;
+                          return (
+                            <span key={a.departmentId} className="department-badge">
+                              <i className="fa-solid fa-sitemap" aria-hidden="true" />
+                              {dept.name}
+                              {a.position && <span className="department-badge-position">· {a.position}</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
                     ) : (
                       <span className="department-badge department-badge-none">—</span>
                     )}

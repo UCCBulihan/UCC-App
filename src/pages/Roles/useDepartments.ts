@@ -3,13 +3,13 @@ import {
   collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import type { UserRole } from './useRoles';
+import type { UserRole, DepartmentAssignment } from './useRoles';
 
 export interface Department {
   id: string;
   name: string;
   description: string;
-  position: string;
+  position: string; // default/suggested position label for this department
   isActive: boolean;
   createdAt?: string;
   createdBy?: string;
@@ -80,8 +80,16 @@ export function useDepartments(
 
   const departmentById = new Map(departments.map((d) => [d.id, d]));
 
+  function getAssignment(user: UserRole, departmentId: string): DepartmentAssignment | undefined {
+    return (user.departments || []).find((a) => a.departmentId === departmentId);
+  }
+
+  function isUserAssigned(user: UserRole, departmentId: string): boolean {
+    return !!getAssignment(user, departmentId);
+  }
+
   function assignedUserCount(departmentId: string): number {
-    return userRoles.filter((u) => u.departmentId === departmentId).length;
+    return userRoles.filter((u) => isUserAssigned(u, departmentId)).length;
   }
 
   // ── Modal open/close ──────────────────────────────────────
@@ -193,11 +201,12 @@ export function useDepartments(
     if (!pendingDelete) return;
     const target = pendingDelete;
     try {
-      const affected = userRoles.filter((u) => u.departmentId === target.id);
+      const affected = userRoles.filter((u) => isUserAssigned(u, target.id));
       if (affected.length > 0) {
         const batch = writeBatch(db);
         affected.forEach((u) => {
-          batch.update(doc(db, 'USERS', u.id), { departmentId: null });
+          const next = (u.departments || []).filter((a) => a.departmentId !== target.id);
+          batch.update(doc(db, 'USERS', u.id), { departments: next });
         });
         await batch.commit();
       }
@@ -211,14 +220,35 @@ export function useDepartments(
     }
   }
 
-  // ── Assign / unassign a single user (multiple users per dept) ─
+  // ── Assign / unassign a user (a user can belong to MULTIPLE
+  //    departments at once, each with its own position) ──────
   async function toggleUserAssignment(department: Department, user: UserRole) {
-    const nextDeptId = user.departmentId === department.id ? null : department.id;
+    const current = user.departments || [];
+    const exists = current.some((a) => a.departmentId === department.id);
+    const next: DepartmentAssignment[] = exists
+      ? current.filter((a) => a.departmentId !== department.id)
+      : [...current, { departmentId: department.id, position: department.position || '' }];
+
     try {
-      await updateDoc(doc(db, 'USERS', user.id), { departmentId: nextDeptId });
+      await updateDoc(doc(db, 'USERS', user.id), { departments: next });
     } catch (err: any) {
       console.error('Assign department error:', err?.message);
       notify('Failed to update assignment.');
+    }
+  }
+
+  // ── Update just the position text for an existing assignment ──
+  async function updateUserPosition(department: Department, user: UserRole, position: string) {
+    const current = user.departments || [];
+    if (!current.some((a) => a.departmentId === department.id)) return; // not assigned, nothing to update
+    const next = current.map((a) =>
+      a.departmentId === department.id ? { ...a, position } : a
+    );
+    try {
+      await updateDoc(doc(db, 'USERS', user.id), { departments: next });
+    } catch (err: any) {
+      console.error('Update position error:', err?.message);
+      notify('Failed to update position.');
     }
   }
 
@@ -242,6 +272,8 @@ export function useDepartments(
     userSearch,
     setUserSearch,
     assignedUserCount,
+    getAssignment,
+    isUserAssigned,
     openModal,
     closeModal,
     openCreateForm,
@@ -253,5 +285,6 @@ export function useDepartments(
     cancelDelete,
     confirmDelete,
     toggleUserAssignment,
+    updateUserPosition,
   };
 }

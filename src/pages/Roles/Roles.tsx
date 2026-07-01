@@ -1,5 +1,5 @@
 import './roles.css';
-import "./DepartmentsModal/departments_modal.css";
+import './DepartmentsModal/departments_modal.css';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import RolesTable from './RolesTable/RolesTable';
 import RoleModal from './RoleModal/RoleModal';
@@ -8,7 +8,7 @@ import RolesPageHeader from './components/RolesPageHeader';
 import RolesToolbar from './components/RolesToolbar';
 import Toast from '../Members/Pledgers/components/Toast';
 import { useRoles } from './useRoles';
-import { useDepartments } from '../Roles/useDepartments';
+import { useDepartments } from './useDepartments';
 
 export default function Roles() {
 
@@ -41,6 +41,7 @@ export default function Roles() {
     userSearch,
     setUserSearch,
     assignedUserCount,
+    getAssignment,
     openModal: openDepartmentsModal,
     closeModal: closeDepartmentsModal,
     openCreateForm: openCreateDepartmentForm,
@@ -52,6 +53,7 @@ export default function Roles() {
     cancelDelete: cancelDeleteDepartment,
     confirmDelete: confirmDeleteDepartment,
     toggleUserAssignment,
+    updateUserPosition,
   } = useDepartments(currentUser, userRoles, showToast);
 
   return (
@@ -114,6 +116,7 @@ export default function Roles() {
           userSearch={userSearch}
           onUserSearchChange={setUserSearch}
           assignedUserCount={assignedUserCount}
+          getAssignment={getAssignment}
           onClose={closeDepartmentsModal}
           onCreateNew={openCreateDepartmentForm}
           onEdit={openEditDepartmentForm}
@@ -124,6 +127,7 @@ export default function Roles() {
           onCancelDelete={cancelDeleteDepartment}
           onConfirmDelete={confirmDeleteDepartment}
           onToggleUserAssignment={toggleUserAssignment}
+          onUpdateUserPosition={updateUserPosition}
         />
 
         <Toast message={toast} />
