@@ -20,6 +20,7 @@ export interface UserRole {
   modifiedDate?: string;
   provider: string;
   lastLogin?: string;
+  departmentId?: string | null;
 }
 
 export interface RoleFormState {
@@ -82,6 +83,7 @@ export function useRoles() {
           dateAssigned: data.dateAssigned || '',
           modifiedBy:   data.modifiedBy || '',
           modifiedDate: data.modifiedDate || '',
+          departmentId: data.departmentId ?? null,
         };
       });
 
@@ -279,5 +281,6 @@ export function useRoles() {
     canEditUser,
     canRemoveUser,
     isLastAdmin,
+    showToast,
   };
 }

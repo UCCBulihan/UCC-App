@@ -1,25 +1,58 @@
 import './roles.css';
+import "./DepartmentsModal/departments_modal.css";
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import RolesTable from './RolesTable/RolesTable';
 import RoleModal from './RoleModal/RoleModal';
+import DepartmentsModal from './DepartmentsModal/DepartmentsModal';
 import RolesPageHeader from './components/RolesPageHeader';
 import RolesToolbar from './components/RolesToolbar';
 import Toast from '../Members/Pledgers/components/Toast';
 import { useRoles } from './useRoles';
+import { useDepartments } from '../Roles/useDepartments';
 
 export default function Roles() {
-    
+
   const {
-  currentUser, userRoles, filtered, search, filter,
-  modalOpen, editingUser, form, formError, toast, loading,
-  assignedCount,
-  setSearch, setFilter,
-  openEditModal, closeModal,
-  handleFormChange, saveRole,
-  removeRole,
-  canEditUser,      
-  canRemoveUser,    
-} = useRoles();
+    currentUser, userRoles, filtered, search, filter,
+    modalOpen, editingUser, form, formError, toast, loading,
+    assignedCount,
+    setSearch, setFilter,
+    openEditModal, closeModal,
+    handleFormChange, saveRole,
+    removeRole,
+    canEditUser,
+    canRemoveUser,
+    showToast,
+  } = useRoles();
+
+  const {
+    departments,
+    departmentById,
+    filteredDepartments,
+    loading: departmentsLoading,
+    search: departmentSearch,
+    setSearch: setDepartmentSearch,
+    isModalOpen: isDepartmentModalOpen,
+    view: departmentView,
+    editingDepartment,
+    form: departmentForm,
+    formError: departmentFormError,
+    pendingDelete: departmentPendingDelete,
+    userSearch,
+    setUserSearch,
+    assignedUserCount,
+    openModal: openDepartmentsModal,
+    closeModal: closeDepartmentsModal,
+    openCreateForm: openCreateDepartmentForm,
+    openEditForm: openEditDepartmentForm,
+    backToList: backToDepartmentList,
+    handleFormChange: handleDepartmentFormChange,
+    saveDepartment,
+    requestDelete: requestDeleteDepartment,
+    cancelDelete: cancelDeleteDepartment,
+    confirmDelete: confirmDeleteDepartment,
+    toggleUserAssignment,
+  } = useDepartments(currentUser, userRoles, showToast);
 
   return (
     <div className="app-layout">
@@ -27,10 +60,12 @@ export default function Roles() {
       <main className="main-content">
         <div className="page">
 
-          <RolesPageHeader 
-            userCount={userRoles.length} 
-            assignedCount={assignedCount} 
-            />
+          <RolesPageHeader
+            userCount={userRoles.length}
+            assignedCount={assignedCount}
+            departmentCount={departments.length}
+            onManageDepartments={openDepartmentsModal}
+          />
 
           <RolesToolbar
             search={search}
@@ -47,6 +82,7 @@ export default function Roles() {
           onEdit={openEditModal}
           canEditUser={canEditUser}
           canRemoveUser={canRemoveUser}
+          departmentById={departmentById}
         />
 
         </div>
@@ -60,6 +96,34 @@ export default function Roles() {
           onClose={closeModal}
           onFormChange={handleFormChange}
           onSubmit={saveRole}
+        />
+
+        <DepartmentsModal
+          isOpen={isDepartmentModalOpen}
+          view={departmentView}
+          departments={filteredDepartments}
+          totalCount={departments.length}
+          loading={departmentsLoading}
+          search={departmentSearch}
+          onSearchChange={setDepartmentSearch}
+          editingDepartment={editingDepartment}
+          form={departmentForm}
+          formError={departmentFormError}
+          pendingDelete={departmentPendingDelete}
+          userRoles={userRoles}
+          userSearch={userSearch}
+          onUserSearchChange={setUserSearch}
+          assignedUserCount={assignedUserCount}
+          onClose={closeDepartmentsModal}
+          onCreateNew={openCreateDepartmentForm}
+          onEdit={openEditDepartmentForm}
+          onBackToList={backToDepartmentList}
+          onFormChange={handleDepartmentFormChange}
+          onSave={saveDepartment}
+          onRequestDelete={requestDeleteDepartment}
+          onCancelDelete={cancelDeleteDepartment}
+          onConfirmDelete={confirmDeleteDepartment}
+          onToggleUserAssignment={toggleUserAssignment}
         />
 
         <Toast message={toast} />

@@ -1,0 +1,360 @@
+/* ===== Departments modal additions ===== */
+/* Append-only file: reuses roles.css tokens/classes (.modal, .field,
+   .input-wrap, .search-wrap, .btn-icon, .empty-state, etc). Import this
+   alongside roles.css — never edit roles.css directly. */
+
+.modal-wide {
+  width: 560px;
+}
+
+/* ── Page header action button ── */
+.page-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.header-btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Department badge (Roles table column) ── */
+.department-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #e0e7ff;
+}
+
+.department-badge-none {
+  background: #f9fafb;
+  color: #9ca3af;
+  border: 1px solid #e5e7eb;
+}
+
+/* ── Department search bar (inside modal) ── */
+.dept-search {
+  margin-bottom: 1rem;
+}
+
+/* ── Department list (modal "list" view) ── */
+.dept-list {
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: 0.25rem;
+}
+
+.dept-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dept-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.dept-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dept-row-name {
+  font-weight: 600;
+  font-size: 14.5px;
+  color: #111827;
+}
+
+.dept-row-position {
+  font-size: 12.5px;
+  color: #6b7280;
+}
+
+.dept-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dept-row-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-right: 4px;
+}
+
+/* ── Status badge (active / inactive) ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-active {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.status-inactive {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* ── Fix icon/text overlap inside department modal fields ──
+   roles.css positions .icon with `position: absolute`, which was
+   overlapping the input text here. !important forces this flex-based
+   layout to win regardless of roles.css's rule order/specificity. */
+.modal-wide .field .input-wrap {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-wide .field .input-wrap:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
+}
+
+.modal-wide .field .input-wrap .icon {
+  position: static !important;
+  flex-shrink: 0 !important;
+  width: 16px;
+  margin-left: 12px;
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
+  color: #9ca3af;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.modal-wide .field .input-wrap input {
+  flex: 1 !important;
+  min-width: 0;
+  border: none !important;
+  outline: none;
+  background: transparent;
+  padding: 9px 12px 9px 8px !important;
+  font-size: 14.5px;
+  color: #111827;
+  font-family: 'Source Sans 3', sans-serif;
+}
+
+.modal-wide .field .input-wrap input::placeholder {
+  color: #c0c4cc;
+}
+
+/* ── Department form extras ── */
+.dept-textarea {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.dept-textarea::placeholder { color: #c0c4cc; }
+
+.dept-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
+}
+
+.dept-toggle-label {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  margin-bottom: 0 !important;
+}
+
+.dept-toggle-label input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.dept-toggle-label span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ── Assigned-users checklist ── */
+.dept-user-checklist {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dept-checklist-empty {
+  font-size: 13.5px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 1.25rem 0;
+}
+
+.dept-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.dept-user-row:hover {
+  background: #f8fafc;
+}
+
+.dept-user-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dept-user-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.dept-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.dept-user-info .member-name {
+  font-size: 13.5px;
+}
+
+.dept-user-info .user-email {
+  font-size: 11.5px;
+}
+
+/* ── Inline confirm dialog (delete department) ── */
+.confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  padding: 1.5rem;
+  z-index: 10;
+}
+
+.confirm-box {
+  background: #fff;
+  border: 1px solid #e2e6ea;
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.confirm-text {
+  font-size: 14.5px;
+  color: #374151;
+  line-height: 1.5;
+  margin-bottom: 1.1rem;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.confirm-actions .btn-secondary,
+.confirm-actions .btn-primary {
+  flex: 1;
+}
+
+.confirm-danger {
+  background: #dc2626 !important;
+}
+
+.confirm-danger:hover {
+  background: #b91c1c !important;
+}
+
+/* Modal needs relative positioning so the inline confirm overlay anchors
+   correctly inside it. */
+.modal {
+  position: relative;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .modal-wide {
+    width: 100%;
+  }
+
+  /* Hide the Department column on the Roles table at the same breakpoint
+     roles.css already uses for Role / Assigned By — keeps the mobile
+     table from overflowing. */
+  .members-table thead th:nth-child(6),
+  .members-table tbody td:nth-child(6) {
+    display: none;
+  }
+}

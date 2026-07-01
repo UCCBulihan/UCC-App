@@ -1,4 +1,5 @@
 import type { UserRole } from '../useRoles';
+import type { Department } from '../useDepartments';
 
 interface Props {
   userRoles: UserRole[];
@@ -8,6 +9,7 @@ interface Props {
   onEdit: (userRole: UserRole) => void;
   canEditUser: (user: UserRole) => boolean;
   canRemoveUser: (user: UserRole) => boolean;
+  departmentById: Map<string, Department>;
 }
 
 function roleBadgeClass(role: string) {
@@ -38,7 +40,7 @@ function avatarFallback(name: string) {
 }
 
 export default function RolesTable({
-  userRoles, filtered, loading, onRemoveRole, onEdit, canEditUser, canRemoveUser,
+  userRoles, filtered, loading, onRemoveRole, onEdit, canEditUser, canRemoveUser, departmentById,
 }: Props) {
   return (
     <div className="members-card">
@@ -51,19 +53,20 @@ export default function RolesTable({
               <th>Role</th>
               <th>Assigned By</th>
               <th>Date Assigned</th>
+              <th>Department</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="empty-cell">
+                <td colSpan={7} className="empty-cell">
                   <div className="empty-state"><p>Loading users…</p></div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-cell">
+                <td colSpan={7} className="empty-cell">
                   <div className="empty-state">
                     <i className="fa-regular fa-id-badge" aria-hidden="true" />
                     <p>No users found.</p>
@@ -71,7 +74,9 @@ export default function RolesTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((u) => (
+              filtered.map((u) => {
+                const department = u.departmentId ? departmentById.get(u.departmentId) : undefined;
+                return (
                 <tr key={u.id}>
 
                   {/* User */}
@@ -139,6 +144,18 @@ export default function RolesTable({
                     <span className="date-text">{u.dateAssigned || '—'}</span>
                   </td>
 
+                  {/* Department */}
+                  <td>
+                    {department ? (
+                      <span className="department-badge">
+                        <i className="fa-solid fa-sitemap" aria-hidden="true" />
+                        {department.name}
+                      </span>
+                    ) : (
+                      <span className="department-badge department-badge-none">—</span>
+                    )}
+                  </td>
+
                   {/* Actions */}
                   <td>
                     <div className="actions-cell">
@@ -157,7 +174,8 @@ export default function RolesTable({
                   </td>
 
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>

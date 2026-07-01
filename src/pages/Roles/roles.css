@@ -85,6 +85,7 @@
   color: #111827;
   background: #fff;
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -122,6 +123,7 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box;
   transition: border-color 0.15s ease;
 }
 
@@ -432,6 +434,7 @@
   transform: translateY(16px) scale(0.98);
   transition: transform 0.22s ease, opacity 0.2s ease;
   opacity: 0;
+  position: relative;
 }
 
 .modal-overlay.open .modal {
@@ -525,15 +528,24 @@
 .field label .req { color: #ef4444; margin-left: 2px; }
 .optional-label { font-size: 11.5px; font-weight: 400; color: #9ca3af; margin-left: 4px; }
 
+/*
+ * .input-wrap: icon is absolutely positioned at left:11px, and the input
+ * reserves space for it via padding-left:34px below. This pairing only
+ * holds if the input's padding survives the cascade — a global input
+ * reset (common in Expo/React-Native-Web projects, which often zero out
+ * default form-control padding/box-sizing) can strip that padding and
+ * cause the icon to sit on top of the text. box-sizing + !important on
+ * the padding/positioning here makes this pairing resistant to that.
+ */
 .input-wrap {
   position: relative;
 }
 
 .input-wrap i.icon {
-  position: absolute;
-  left: 11px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: absolute !important;
+  left: 11px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
   color: #9ca3af;
   font-size: 13px;
   pointer-events: none;
@@ -543,7 +555,7 @@
 .input-wrap input {
   display: block;
   width: 100%;
-  padding: 9px 12px 9px 34px;
+  padding: 9px 12px 9px 34px !important;
   border: 1.5px solid #d1d5db;
   border-radius: 10px;
   font-size: 14.5px;
@@ -551,8 +563,8 @@
   color: #111827;
   background: #fff;
   outline: none;
+  box-sizing: border-box !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  box-sizing: border-box;
 }
 
 .input-wrap input::placeholder { color: #c0c4cc; }
@@ -562,11 +574,38 @@
   box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
 }
 
+/* Textarea shares field/label styling but has no icon — only needs the
+   base box-sizing + padding guard, no left offset. Used by the new
+   Department "Description" field. */
+.input-wrap textarea,
+.field textarea {
+  display: block;
+  width: 100%;
+  padding: 9px 12px !important;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field textarea::placeholder { color: #c0c4cc; }
+
+.field textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
+}
+
 /* Select inside modal */
 .select-wrap select {
   display: block;
   width: 100%;
-  padding: 9px 12px 9px 34px;
+  padding: 9px 12px 9px 34px !important;
   border: 1.5px solid #d1d5db;
   border-radius: 10px;
   font-size: 14.5px;
@@ -577,8 +616,8 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  box-sizing: border-box;
 }
 
 .select-wrap select:focus {
