@@ -1,7 +1,3 @@
-/* ===== Departments modal additions ===== */
-/* Append-only file: reuses roles.css tokens/classes (.modal, .field,
-   .input-wrap, .search-wrap, .btn-icon, .empty-state, etc). Import this
-   alongside roles.css — never edit roles.css directly. */
 
 .modal-wide {
   width: 560px;
@@ -220,9 +216,11 @@
   flex-shrink: 0;
 }
 
-.dept-user-position-input {
+.dept-user-row .dept-user-position-input {
   width: 140px;
-  flex-shrink: 0;
+  max-width: 140px;
+  min-width: 140px;
+  flex: 0 0 140px;
   padding: 6px 10px;
   border: 1.5px solid #d1d5db;
   border-radius: 8px;
@@ -243,6 +241,48 @@
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
+
+/* Plain-text "position" display shown instead of the input until the
+   user explicitly clicks to edit — avoids visually duplicating the
+   Default Position field and prevents accidental overwrites. */
+.dept-user-row .dept-user-position-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 140px;
+  max-width: 140px;
+  min-width: 140px;
+  flex: 0 0 140px;
+  padding: 6px 10px;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-family: 'Source Sans 3', sans-serif;
+  color: #4b5563;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.dept-user-position-display:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.dept-user-position-display span {
+  flex: 1;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dept-user-position-display i {
+  font-size: 10px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
 
 /* ── Multiple department badges per user (Roles table) ── */
 .department-badge-stack {
@@ -271,6 +311,13 @@
   gap: 1px;
   min-width: 0;
   flex: 1;
+}
+
+.dept-user-info .member-name,
+.dept-user-info .user-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dept-user-info .member-name {

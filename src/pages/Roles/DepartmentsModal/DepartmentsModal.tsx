@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { Department, DepartmentFormState } from '../useDepartments';
 import type { UserRole } from '../useRoles';
 
@@ -46,6 +47,14 @@ export default function DepartmentsModal({
   onRequestDelete, onCancelDelete, onConfirmDelete, onToggleUserAssignment, onUpdateUserPosition,
 }: Props) {
   const isEdit = !!editingDepartment;
+  const [editingPositionFor, setEditingPositionFor] = useState<string | null>(null);
+
+  // Reset the inline position editor whenever the department (or the
+  // modal's open/closed state) changes, so we don't carry a stale
+  // "editing" target over to a different department/user.
+  useEffect(() => {
+    setEditingPositionFor(null);
+  }, [editingDepartment?.id, isOpen]);
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -258,14 +267,36 @@ export default function DepartmentsModal({
                             <span className="user-email">{u.email}</span>
                           </span>
                           {checked && (
-                            <input
-                              type="text"
-                              className="dept-user-position-input"
-                              placeholder="Position (e.g. Treasurer)"
-                              value={assignment?.position || ''}
-                              onChange={(e) => onUpdateUserPosition(editingDepartment, u, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
+                            editingPositionFor === u.id ? (
+                              <input
+                                type="text"
+                                className="dept-user-position-input"
+                                placeholder="Position (e.g. Treasurer)"
+                                value={assignment?.position || ''}
+                                onChange={(e) => onUpdateUserPosition(editingDepartment, u, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onBlur={() => setEditingPositionFor(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === 'Escape') {
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className="dept-user-position-display"
+                                title="Click to edit position"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPositionFor(u.id);
+                                }}
+                              >
+                                <span>{assignment?.position || editingDepartment.position || '—'}</span>
+                                <i className="fa-solid fa-pen" aria-hidden="true" />
+                              </button>
+                            )
                           )}
                         </div>
                       );
