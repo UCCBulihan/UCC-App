@@ -1,0 +1,49 @@
+/* ===== Recurring activities (Repeat field + series delete) ===== */
+/* Append these rules to calendar.css. Uses the same --cal-* tokens as the
+   rest of the file. */
+
+.calendar-checkbox-row input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--cal-accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.calendar-repeat-end-row {
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.calendar-repeat-end-row .calendar-checkbox-row {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.calendar-repeat-count-input {
+  width: 64px;
+  flex: none;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.calendar-repeat-end-row input[type='date'] {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* ---------- Delete-confirm dialog ---------- */
+/* .calendar-confirm-box max-width was widened directly in calendar.css to
+   fit the 3-button recurring-series delete case. */
+
+.calendar-confirm-subtext {
+  font-size: 13px;
+  color: var(--cal-text-secondary);
+  margin: -8px 0 16px;
+  line-height: 1.5;
+}
+
+.calendar-confirm-actions {
+  flex-wrap: wrap;
+}
