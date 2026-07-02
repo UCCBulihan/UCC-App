@@ -131,6 +131,20 @@ function createEmptyCategoryDraft(): NewCategoryDraft {
   return { name: '', color: CATEGORY_COLORS[0].value, icon: CATEGORY_ICONS[0].value }
 }
 
+// Small "?" badge that reveals a short explanatory note on hover/focus.
+// Keyboard-accessible (focus-within triggers the same reveal as :hover,
+// so tabbing to it shows the note without needing a click/JS state).
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="calendar-tooltip" tabIndex={0} role="button" aria-label={text}>
+      <span className="calendar-tooltip-icon" aria-hidden="true">?</span>
+      <span className="calendar-tooltip-bubble" role="tooltip">
+        {text}
+      </span>
+    </span>
+  )
+}
+
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -1273,9 +1287,12 @@ export default function Calendar() {
 
                     {!editingActivityId && (
                       <div className="calendar-field">
-                        <label className="calendar-field-label" htmlFor="activity-repeat">
-                          Repeat
-                        </label>
+                        <div className="calendar-field-label-inline">
+                          <label className="calendar-field-label" htmlFor="activity-repeat">
+                            Repeat
+                          </label>
+                          <InfoTooltip text="Weekly repeats every 7 days from the start date. Monthly repeats on the same day each month (e.g. the 31st becomes the last day in shorter months). Yearly repeats on the same month and day each year. Each occurrence gets the same time, end time, and category as the first." />
+                        </div>
                         <select
                           id="activity-repeat"
                           className="calendar-input"
@@ -1309,6 +1326,7 @@ export default function Calendar() {
                                 onChange={(e) => updateDraft('repeatCount', Number(e.target.value))}
                               />
                               <span>occurrences</span>
+                              <InfoTooltip text={`Total number of times this activity will appear, counting the start date itself as the 1st. Max ${MAX_RECURRENCE_OCCURRENCES}.`} />
                             </div>
                             <div className="calendar-checkbox-row">
                               <input

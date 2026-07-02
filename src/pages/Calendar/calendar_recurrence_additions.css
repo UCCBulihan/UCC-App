@@ -33,6 +33,87 @@
   min-width: 140px;
 }
 
+/* Label immediately followed by a "?" tooltip badge — tight gap, not the
+   space-between spacing .calendar-field-label-row uses for far-right
+   actions like "+ Category" / "Manage". */
+.calendar-field-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* ---------- Info tooltip ("?" badge with hover/focus note) ---------- */
+
+.calendar-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.calendar-tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--cal-border-strong);
+  color: var(--cal-surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.calendar-tooltip:hover .calendar-tooltip-icon,
+.calendar-tooltip:focus-visible .calendar-tooltip-icon {
+  background: var(--cal-accent);
+}
+
+.calendar-tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 220px;
+  background: var(--cal-text);
+  color: var(--cal-surface);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  border-radius: var(--cal-radius-sm);
+  padding: 10px 12px;
+  box-shadow: 0 8px 20px -6px rgba(28, 27, 25, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 20;
+}
+
+.calendar-tooltip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--cal-text);
+}
+
+.calendar-tooltip:hover .calendar-tooltip-bubble,
+.calendar-tooltip:focus-visible .calendar-tooltip-bubble,
+.calendar-tooltip:focus-within .calendar-tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ---------- Delete-confirm dialog ---------- */
 /* .calendar-confirm-box max-width was widened directly in calendar.css to
    fit the 3-button recurring-series delete case. */
