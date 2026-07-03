@@ -13,6 +13,11 @@ export function useAuthSync() {
         ? 'google'
         : 'password';
 
+      // Only login/profile fields are synced here. `role` and `departments`
+      // are intentionally NOT touched — those are managed by your existing
+      // admin-assignment flow (assignedBy / dateAssigned / modifiedBy /
+      // modifiedDate). Because setDoc uses merge:true, this never overwrites
+      // whatever an admin has already set for this user.
       await setDoc(
         doc(db, 'USERS', user.uid),
         {
@@ -20,7 +25,7 @@ export function useAuthSync() {
           displayName: user.displayName || user.email?.split('@')[0] || '',
           email:       user.email || '',
           photoURL:    user.photoURL || '',
-          provider,                 
+          provider,
           lastLogin:   serverTimestamp(),
         },
         { merge: true }

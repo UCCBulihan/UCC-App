@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { MenuService } from '../../../../services/MenuService';
 import type { MenuItem } from '../../../../services/interface/IMenuService';
+// ⚠️ Adjust this path to wherever useUserAccess.ts actually lives in your project
+// (it should sit next to useAuthSync.ts / firebase.ts).
+import { useUserAccess } from '../../../firebase/useUserAccess';
 import './navigation-bar.css'
 
 const menuService = new MenuService();
 
 export default function NavigationBar() {
-  const menuItems = menuService.getMenuItems();
+  const { userAccess, loading } = useUserAccess();
+  const menuItems = menuService.getMenuItems(userAccess ?? undefined);
   const [isOpen, setIsOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<number[]>([]);
   const location = useLocation();
@@ -19,7 +23,7 @@ export default function NavigationBar() {
         setExpandedItems(prev => prev.includes(item.sortOrder) ? prev : [...prev, item.sortOrder]);
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, menuItems]);
 
   const toggleExpand = (sortOrder: number) => {
     setExpandedItems(prev =>
@@ -132,7 +136,7 @@ export default function NavigationBar() {
         </div>
 
         <div className="sidebar-links">
-          {menuItems.map(renderMenuItem)}
+          {loading ? null : menuItems.map(renderMenuItem)}
         </div>
 
         <div className="sidebar-bottom">
