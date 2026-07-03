@@ -30,6 +30,7 @@ interface Props {
   onConfirmDelete: () => void;
   onToggleUserAssignment: (department: Department, user: UserRole) => void;
   onUpdateUserPosition: (department: Department, user: UserRole, position: string) => void;
+  isAdmin: boolean;
 }
 
 function avatarFallback(name: string) {
@@ -45,6 +46,7 @@ export default function DepartmentsModal({
   userRoles, userSearch, onUserSearchChange, assignedUserCount, getAssignment,
   onClose, onCreateNew, onEdit, onBackToList, onFormChange, onSave,
   onRequestDelete, onCancelDelete, onConfirmDelete, onToggleUserAssignment, onUpdateUserPosition,
+  isAdmin,
 }: Props) {
   const isEdit = !!editingDepartment;
   const [editingPositionFor, setEditingPositionFor] = useState<string | null>(null);
@@ -126,17 +128,25 @@ export default function DepartmentsModal({
                               <i className="fa-solid fa-users" aria-hidden="true" /> {count}
                             </span>
                           )}
-                          <button type="button" className="btn-icon" title={`Edit ${d.name}`} onClick={() => onEdit(d)}>
-                            <i className="fa-solid fa-pen" aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-icon danger"
-                            title={`Delete ${d.name}`}
-                            onClick={() => onRequestDelete(d)}
-                          >
-                            <i className="fa-solid fa-trash" aria-hidden="true" />
-                          </button>
+                          {isAdmin ? (
+                            <>
+                              <button type="button" className="btn-icon" title={`Edit ${d.name}`} onClick={() => onEdit(d)}>
+                                <i className="fa-solid fa-pen" aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-icon danger"
+                                title={`Delete ${d.name}`}
+                                onClick={() => onRequestDelete(d)}
+                              >
+                                <i className="fa-solid fa-trash" aria-hidden="true" />
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="btn-icon" title={`View ${d.name}`} onClick={() => onEdit(d)}>
+                              <i className="fa-solid fa-eye" aria-hidden="true" />
+                            </button>
+                          )}
                         </div>
                       </li>
                     );
@@ -146,9 +156,11 @@ export default function DepartmentsModal({
             </div>
 
             <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={onCreateNew}>
-                <i className="fa-solid fa-plus" aria-hidden="true" /> New Department
-              </button>
+              {isAdmin && (
+                <button type="button" className="btn-secondary" onClick={onCreateNew}>
+                  <i className="fa-solid fa-plus" aria-hidden="true" /> New Department
+                </button>
+              )}
               <button type="button" className="btn-primary" onClick={onClose}>
                 Done
               </button>
@@ -163,6 +175,13 @@ export default function DepartmentsModal({
               </div>
             )}
 
+            {!isAdmin && (
+              <div className="modal-error" style={{ background: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }}>
+                <i className="fa-solid fa-circle-info" aria-hidden="true" />
+                View only — only Admins can create or edit departments.
+              </div>
+            )}
+
             <p className="section-label">Details</p>
             <div className="field">
               <label htmlFor="name">Department Name <span className="req">*</span></label>
@@ -174,6 +193,7 @@ export default function DepartmentsModal({
                   placeholder="e.g. Worship Ministry"
                   value={form.name}
                   onChange={onFormChange}
+                  disabled={!isAdmin}
                   autoFocus
                 />
               </div>
@@ -189,6 +209,7 @@ export default function DepartmentsModal({
                   placeholder="e.g. Department Head"
                   value={form.position}
                   onChange={onFormChange}
+                  disabled={!isAdmin}
                 />
               </div>
               <p className="role-hint">Used as the starting position when a user is newly assigned — editable per person below.</p>
@@ -202,6 +223,7 @@ export default function DepartmentsModal({
                 placeholder="What does this department do?"
                 value={form.description}
                 onChange={onFormChange}
+                disabled={!isAdmin}
                 rows={3}
               />
             </div>
@@ -213,6 +235,7 @@ export default function DepartmentsModal({
                   type="checkbox"
                   checked={form.isActive}
                   onChange={onFormChange}
+                  disabled={!isAdmin}
                 />
                 <span>Active department</span>
               </label>
@@ -249,6 +272,7 @@ export default function DepartmentsModal({
                             type="checkbox"
                             checked={checked}
                             onChange={() => onToggleUserAssignment(editingDepartment, u)}
+                            disabled={!isAdmin}
                           />
                           {u.photoURL ? (
                             <img
@@ -267,7 +291,7 @@ export default function DepartmentsModal({
                             <span className="user-email">{u.email}</span>
                           </span>
                           {checked && (
-                            editingPositionFor === u.id ? (
+                            editingPositionFor === u.id && isAdmin ? (
                               <input
                                 type="text"
                                 className="dept-user-position-input"
@@ -287,14 +311,15 @@ export default function DepartmentsModal({
                               <button
                                 type="button"
                                 className="dept-user-position-display"
-                                title="Click to edit position"
+                                title={isAdmin ? 'Click to edit position' : undefined}
+                                disabled={!isAdmin}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingPositionFor(u.id);
+                                  if (isAdmin) setEditingPositionFor(u.id);
                                 }}
                               >
                                 <span>{assignment?.position || editingDepartment.position || '—'}</span>
-                                <i className="fa-solid fa-pen" aria-hidden="true" />
+                                {isAdmin && <i className="fa-solid fa-pen" aria-hidden="true" />}
                               </button>
                             )
                           )}
@@ -310,10 +335,12 @@ export default function DepartmentsModal({
               <button type="button" className="btn-secondary" onClick={onBackToList}>
                 <i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back
               </button>
-              <button type="button" className="btn-primary" onClick={onSave}>
-                <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
-                {isEdit ? 'Save Changes' : 'Create Department'}
-              </button>
+              {isAdmin && (
+                <button type="button" className="btn-primary" onClick={onSave}>
+                  <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
+                  {isEdit ? 'Save Changes' : 'Create Department'}
+                </button>
+              )}
             </div>
           </>
         )}

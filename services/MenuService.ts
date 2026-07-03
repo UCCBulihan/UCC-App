@@ -27,7 +27,7 @@ export class MenuService implements IMenuService {
             ]
         },
 
-        { sortOrder: 20, name: 'Roles', iconClass: 'fa-solid fa-user-shield', path: '/Roles', allowedRoles: [ADMIN_ROLE] },
+        { sortOrder: 20, name: 'Roles', iconClass: 'fa-solid fa-user-shield', path: '/Roles', allowedRoles: [ADMIN_ROLE, 'moderator'] },
 
         {
             sortOrder: 30, name: 'Pledges', iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges',

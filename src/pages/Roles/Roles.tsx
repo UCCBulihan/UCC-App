@@ -13,7 +13,7 @@ import { useDepartments } from './useDepartments';
 export default function Roles() {
 
   const {
-    currentUser, userRoles, filtered, search, filter,
+    currentUser, currentUserRole, userRoles, filtered, search, filter,
     modalOpen, editingUser, form, formError, toast, loading,
     assignedCount,
     setSearch, setFilter,
@@ -29,6 +29,7 @@ export default function Roles() {
     departments,
     departmentById,
     filteredDepartments,
+    isAdmin: isDepartmentAdmin,
     loading: departmentsLoading,
     search: departmentSearch,
     setSearch: setDepartmentSearch,
@@ -54,7 +55,7 @@ export default function Roles() {
     confirmDelete: confirmDeleteDepartment,
     toggleUserAssignment,
     updateUserPosition,
-  } = useDepartments(currentUser, userRoles, showToast);
+  } = useDepartments(currentUser, userRoles, showToast, currentUserRole === 'Admin');
 
   return (
     <div className="app-layout">
@@ -128,6 +129,7 @@ export default function Roles() {
           onConfirmDelete={confirmDeleteDepartment}
           onToggleUserAssignment={toggleUserAssignment}
           onUpdateUserPosition={updateUserPosition}
+          isAdmin={isDepartmentAdmin}
         />
 
         <Toast message={toast} />

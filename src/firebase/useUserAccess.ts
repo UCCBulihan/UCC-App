@@ -76,7 +76,7 @@ export function useUserAccess(): UseUserAccessResult {
     });
 
     return () => {
-      unsubAuth();
+      unsubAuth();  
       if (unsubDoc) unsubDoc();
     };
   }, []);

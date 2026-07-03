@@ -39,6 +39,7 @@ export function useDepartments(
   currentUser: string,
   userRoles: UserRole[],
   notify: (msg: string) => void,
+  isAdmin: boolean,
 ) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +146,11 @@ export function useDepartments(
 
   // ── Save (create or edit) ─────────────────────────────────
   async function saveDepartment() {
+    if (!isAdmin) {
+      setFormError('Only Admins can manage departments.');
+      return;
+    }
+
     const name = form.name.trim();
     if (!name) {
       setFormError('Department name is required.');
@@ -198,6 +204,11 @@ export function useDepartments(
   }
 
   async function confirmDelete() {
+    if (!isAdmin) {
+      notify('Only Admins can delete departments.');
+      setPendingDelete(null);
+      return;
+    }
     if (!pendingDelete) return;
     const target = pendingDelete;
     try {
@@ -223,6 +234,10 @@ export function useDepartments(
   // ── Assign / unassign a user (a user can belong to MULTIPLE
   //    departments at once, each with its own position) ──────
   async function toggleUserAssignment(department: Department, user: UserRole) {
+    if (!isAdmin) {
+      notify('Only Admins can assign departments.');
+      return;
+    }
     const current = user.departments || [];
     const exists = current.some((a) => a.departmentId === department.id);
     const next: DepartmentAssignment[] = exists
@@ -239,6 +254,10 @@ export function useDepartments(
 
   // ── Update just the position text for an existing assignment ──
   async function updateUserPosition(department: Department, user: UserRole, position: string) {
+    if (!isAdmin) {
+      notify('Only Admins can edit department positions.');
+      return;
+    }
     const current = user.departments || [];
     if (!current.some((a) => a.departmentId === department.id)) return; // not assigned, nothing to update
     const next = current.map((a) =>
@@ -261,6 +280,7 @@ export function useDepartments(
     departmentById,
     filteredDepartments,
     loading,
+    isAdmin,
     search,
     setSearch,
     isModalOpen,
