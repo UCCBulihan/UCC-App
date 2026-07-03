@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { signOut } from 'firebase/auth';
 import { MenuService } from '../../../../services/MenuService';
 import type { MenuItem } from '../../../../services/interface/IMenuService';
-// ⚠️ Adjust this path to wherever useUserAccess.ts actually lives in your project
-// (it should sit next to useAuthSync.ts / firebase.ts).
+// ⚠️ Adjust these paths to wherever useUserAccess.ts / firebase.ts actually
+// live in your project (they should sit next to each other).
 import { useUserAccess } from '../../../firebase/useUserAccess';
+import { auth } from '../../../firebase/firebase';
+import LogoutModal from './LogoutModal';
 import './navigation-bar.css'
 
 const menuService = new MenuService();
@@ -14,7 +17,31 @@ export default function NavigationBar() {
   const menuItems = menuService.getMenuItems(userAccess ?? undefined);
   const [isOpen, setIsOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<number[]>([]);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogoutClick = () => setShowLogoutModal(true);
+
+  const handleLogoutCancel = () => {
+    if (loggingOut) return; // don't allow closing mid-request
+    setShowLogoutModal(false);
+  };
+
+  const handleLogoutConfirm = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut(auth);
+      // Matches the "/" route in App.tsx (Login page)
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('[NavigationBar] signOut error:', error);
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
 
   // Auto-expand parent if current route matches a sub-menu item
   useEffect(() => {
@@ -140,9 +167,21 @@ export default function NavigationBar() {
         </div>
 
         <div className="sidebar-bottom">
-          <button className="btn-ghost">Log Out</button>
+          <button
+            className="btn-ghost"
+            onClick={handleLogoutClick}
+          >
+            Log Out
+          </button>
         </div>
       </nav>
+
+      <LogoutModal
+        isOpen={showLogoutModal}
+        loading={loggingOut}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
     </>
   );
 }

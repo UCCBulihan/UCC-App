@@ -1,0 +1,60 @@
+.logout-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 1rem;
+}
+
+.logout-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  animation: logout-modal-in 0.15s ease;
+}
+
+@keyframes logout-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.logout-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 8px;
+}
+
+.logout-modal-text {
+  font-size: 14px;
+  color: #555;
+  margin: 0 0 20px;
+  line-height: 1.4;
+}
+
+.logout-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.logout-modal-confirm {
+  background: #d64545;
+}
+
+.logout-modal-confirm:hover {
+  opacity: 0.88;
+}
