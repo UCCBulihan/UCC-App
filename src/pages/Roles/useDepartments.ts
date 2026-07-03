@@ -14,6 +14,7 @@ export interface Department {
   createdAt?: string;
   createdBy?: string;
   updatedAt?: string;
+  updatedBy?: string; // who last edited (Admin or Moderator)
 }
 
 export interface DepartmentFormState {
@@ -39,8 +40,17 @@ export function useDepartments(
   currentUser: string,
   userRoles: UserRole[],
   notify: (msg: string) => void,
-  isAdmin: boolean,
+  currentUserRole: string,
 ) {
+  // ── Permission tiers ──────────────────────────────────────
+  // canManage : structural/destructive actions — create & delete departments.
+  // canEdit   : day-to-day management — edit details, assign/unassign
+  //             users, edit a user's position within a department.
+  const isAdmin = currentUserRole === 'Admin';
+  const isModerator = currentUserRole === 'Moderator';
+  const canManage = isAdmin;
+  const canEdit = isAdmin || isModerator;
+
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,6 +77,7 @@ export function useDepartments(
           createdAt: data.createdAt || '',
           createdBy: data.createdBy || '',
           updatedAt: data.updatedAt || '',
+          updatedBy: data.updatedBy || '',
         };
       });
       list.sort((a, b) => a.name.localeCompare(b.name));
@@ -146,8 +157,12 @@ export function useDepartments(
 
   // ── Save (create or edit) ─────────────────────────────────
   async function saveDepartment() {
-    if (!isAdmin) {
-      setFormError('Only Admins can manage departments.');
+    if (editingDepartment ? !canEdit : !canManage) {
+      setFormError(
+        editingDepartment
+          ? 'You do not have permission to edit departments.'
+          : 'Only Admins can create departments.'
+      );
       return;
     }
 
@@ -173,6 +188,7 @@ export function useDepartments(
           position: form.position.trim(),
           isActive: form.isActive,
           updatedAt: formatDate(),
+          updatedBy: currentUser,
         });
         notify(`"${name}" updated.`);
       } else {
@@ -184,6 +200,7 @@ export function useDepartments(
           createdAt: formatDate(),
           createdBy: currentUser,
           updatedAt: '',
+          updatedBy: '',
         });
         notify(`"${name}" created.`);
       }
@@ -234,8 +251,8 @@ export function useDepartments(
   // ── Assign / unassign a user (a user can belong to MULTIPLE
   //    departments at once, each with its own position) ──────
   async function toggleUserAssignment(department: Department, user: UserRole) {
-    if (!isAdmin) {
-      notify('Only Admins can assign departments.');
+    if (!canEdit) {
+      notify('You do not have permission to assign departments.');
       return;
     }
     const current = user.departments || [];
@@ -254,8 +271,8 @@ export function useDepartments(
 
   // ── Update just the position text for an existing assignment ──
   async function updateUserPosition(department: Department, user: UserRole, position: string) {
-    if (!isAdmin) {
-      notify('Only Admins can edit department positions.');
+    if (!canEdit) {
+      notify('You do not have permission to edit department positions.');
       return;
     }
     const current = user.departments || [];
@@ -280,7 +297,8 @@ export function useDepartments(
     departmentById,
     filteredDepartments,
     loading,
-    isAdmin,
+    canManage,
+    canEdit,
     search,
     setSearch,
     isModalOpen,

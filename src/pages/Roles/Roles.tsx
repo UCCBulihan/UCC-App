@@ -29,7 +29,8 @@ export default function Roles() {
     departments,
     departmentById,
     filteredDepartments,
-    isAdmin: isDepartmentAdmin,
+    canManage: canManageDepartments,
+    canEdit: canEditDepartments,
     loading: departmentsLoading,
     search: departmentSearch,
     setSearch: setDepartmentSearch,
@@ -55,7 +56,7 @@ export default function Roles() {
     confirmDelete: confirmDeleteDepartment,
     toggleUserAssignment,
     updateUserPosition,
-  } = useDepartments(currentUser, userRoles, showToast, currentUserRole === 'Admin');
+  } = useDepartments(currentUser, userRoles, showToast, currentUserRole);
 
   return (
     <div className="app-layout">
@@ -129,7 +130,8 @@ export default function Roles() {
           onConfirmDelete={confirmDeleteDepartment}
           onToggleUserAssignment={toggleUserAssignment}
           onUpdateUserPosition={updateUserPosition}
-          isAdmin={isDepartmentAdmin}
+          canManage={canManageDepartments}
+          canEdit={canEditDepartments}
         />
 
         <Toast message={toast} />
