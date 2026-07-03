@@ -24,7 +24,7 @@ export class MenuService implements IMenuService {
             allowedRoles: ['moderator'],
             subMenuItems: [
                 { sortOrder: 11, name: 'All Members', iconClass: 'fa-solid fa-list', path: '/AllMembers', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] },
-                { sortOrder: 12, name: 'Pledgers', iconClass: 'fa-solid fa-hand-holding-heart', path: '/PledgesMembers', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] }
+                { sortOrder: 12, name: 'Pledgers', iconClass: 'fa-solid fa-hand-holding-heart', path: '/PledgesMembers', allowedDepartments: [DEPT.MEMBERSHIP,DEPT.PLEDGES] }
             ]
         },
 
