@@ -21,13 +21,14 @@ export class MenuService implements IMenuService {
         {
             sortOrder: 10, name: 'Members', iconClass: 'fa-solid fa-users', path: '',
             allowedDepartments: [DEPT.MEMBERSHIP],
+            allowedRoles: ['moderator'],
             subMenuItems: [
-                { sortOrder: 11, name: 'All Members', iconClass: 'fa-solid fa-list', path: '/AllMembers', allowedDepartments: [DEPT.MEMBERSHIP] },
-                { sortOrder: 12, name: 'Pledgers', iconClass: 'fa-solid fa-hand-holding-heart', path: '/PledgesMembers', allowedDepartments: [DEPT.MEMBERSHIP] }
+                { sortOrder: 11, name: 'All Members', iconClass: 'fa-solid fa-list', path: '/AllMembers', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] },
+                { sortOrder: 12, name: 'Pledgers', iconClass: 'fa-solid fa-hand-holding-heart', path: '/PledgesMembers', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] }
             ]
         },
 
-        { sortOrder: 20, name: 'Roles', iconClass: 'fa-solid fa-user-shield', path: '/Roles', allowedRoles: [ADMIN_ROLE, 'moderator', 'moderator'] },
+        { sortOrder: 20, name: 'Roles', iconClass: 'fa-solid fa-user-shield', path: '/Roles', allowedRoles: [ADMIN_ROLE, 'moderator'] },
 
         {
             sortOrder: 30, name: 'Pledges', iconClass: 'fa-solid fa-hand-holding-heart', path: '/pledges',
@@ -74,12 +75,25 @@ export class MenuService implements IMenuService {
     private hasAccess(item: MenuItem, access: UserAccess): boolean {
         if (access.role?.toLowerCase() === ADMIN_ROLE) return true;
 
-        const roleOk = !item.allowedRoles
-            || item.allowedRoles.some(r => r.toLowerCase() === access.role?.toLowerCase());
-        const deptOk = !item.allowedDepartments
-            || access.departmentNames.some(name => item.allowedDepartments!.includes(name));
+        const hasRoleRule = !!item.allowedRoles;
+        const hasDeptRule = !!item.allowedDepartments;
 
-        return roleOk && deptOk;
+        const roleMatch = hasRoleRule
+            && item.allowedRoles!.some(r => r.toLowerCase() === access.role?.toLowerCase());
+        const deptMatch = hasDeptRule
+            && access.departmentNames.some(name => item.allowedDepartments!.includes(name));
+
+        // No restrictions at all -> visible to everyone.
+        if (!hasRoleRule && !hasDeptRule) return true;
+
+        // Both rules set on the same item -> satisfying EITHER one is enough
+        // (e.g. Moderators should see "Members" even without a Membership
+        // department, and Membership-department users should see it even
+        // without the Moderator role).
+        if (hasRoleRule && hasDeptRule) return roleMatch || deptMatch;
+
+        // Only one rule set -> that rule alone decides.
+        return hasRoleRule ? roleMatch : deptMatch;
     }
 
     private filterItems(items: MenuItem[], access: UserAccess): MenuItem[] {
