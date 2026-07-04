@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase/firebase.ts"; 
 import NavigationBar from '../Home/NavigationBar/NavigationBar.tsx';
+import { useCurrentUserRole } from './useCurrentUserRole.ts'; // adjust path to wherever you place the hook
 import './SundaySchoolLineUp.css';
 
 interface SundayEntry {
@@ -52,6 +53,11 @@ function emptyEntry(): SundayEntry {
 }
 
 export default function SundaySchoolLineUp() {
+  // Non-financial roster info (teacher/assistant/topic assignments), so
+  // Member and up can edit it. Viewer stays read-only, same as everywhere
+  // else in Sunday School.
+  const { canEditDetails } = useCurrentUserRole();
+
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -126,6 +132,10 @@ export default function SundaySchoolLineUp() {
 
   const persistDay = useCallback(
     async (key: string, entry: SundayEntry) => {
+      if (!canEditDetails) {
+        console.warn('Blocked roster save: current role (Viewer) is read-only.');
+        return;
+      }
       const cleaned = {
         teacher: entry.teacher.trim().slice(0, MAX_NAME_LENGTH),
         assistants: entry.assistants
@@ -162,7 +172,7 @@ export default function SundaySchoolLineUp() {
         delete saveTimers.current[key];
       }
     },
-    [showStatus]
+    [showStatus, canEditDetails]
   );
 
   const updateEntry = useCallback(
@@ -273,6 +283,8 @@ export default function SundaySchoolLineUp() {
                           updateEntry(day, (en) => ({ ...en, teacher: value }));
                         }}
                         className="ssl-input"
+                        disabled={!canEditDetails}
+                        title={!canEditDetails ? 'View only' : undefined}
                       />
                     </div>
 
@@ -294,8 +306,10 @@ export default function SundaySchoolLineUp() {
                               });
                             }}
                             className="ssl-input"
+                            disabled={!canEditDetails}
+                            title={!canEditDetails ? 'View only' : undefined}
                           />
-                          {entry.assistants.length > 1 && (
+                          {entry.assistants.length > 1 && canEditDetails && (
                             <button
                               type="button"
                               aria-label="Remove assistant teacher"
@@ -325,16 +339,18 @@ export default function SundaySchoolLineUp() {
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExpandedDays((prev) => ({ ...prev, [key]: true }));
-                          updateEntry(day, (en) => ({ ...en, assistants: [...en.assistants, ""] }));
-                        }}
-                        className="ssl-add-link"
-                      >
-                        <i className="fa-solid fa-plus" aria-hidden="true" /> Add another assistant
-                      </button>
+                      {canEditDetails && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedDays((prev) => ({ ...prev, [key]: true }));
+                            updateEntry(day, (en) => ({ ...en, assistants: [...en.assistants, ""] }));
+                          }}
+                          className="ssl-add-link"
+                        >
+                          <i className="fa-solid fa-plus" aria-hidden="true" /> Add another assistant
+                        </button>
+                      )}
                     </div>
 
                     <div className="ssl-field">
@@ -349,6 +365,8 @@ export default function SundaySchoolLineUp() {
                           updateEntry(day, (en) => ({ ...en, topic: value }));
                         }}
                         className="ssl-input"
+                        disabled={!canEditDetails}
+                        title={!canEditDetails ? 'View only' : undefined}
                       />
                     </div>
                   </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { db } from '../../firebase/firebase' // adjust to your actual firebase.ts path
 import { collection, query, where, getDocs, Timestamp, doc, setDoc } from 'firebase/firestore'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
+import { useCurrentUserRole } from './useCurrentUserRole' // adjust path to wherever you place the hook
 import './sundaySchool.css'
 
 // ════════════════════════════════════════════════════════════════
@@ -104,6 +105,11 @@ function SaveBadge({ status }: { status?: RowSaveStatus }) {
 
 export default function SundaySchool() {
   const now = new Date()
+
+  // Admin/Moderator can touch amount + received status (the actual money).
+  // Member and up can touch sponsor/note (just annotations). Viewer is
+  // read-only across the board.
+  const { canEditFinancials, canEditDetails } = useCurrentUserRole()
 
   const [curMonth, setCurMonth] = useState(now.getMonth()) // 0-indexed, same as PLEDGES
   const [curYear, setCurYear] = useState(now.getFullYear())
@@ -208,6 +214,17 @@ export default function SundaySchool() {
   // ── Ito lang ang TANGING lugar na talagang sumusulat sa Firestore ─────────
   const writeToFirestore = useCallback(
     async (day: number, field: SundayField, value: string | boolean) => {
+      // Permission check happens here too, not just on the disabled inputs —
+      // this is the one real chokepoint, so it's the safest place to make
+      // sure a role change can't be bypassed by calling the handler directly.
+      const isFinancialField = field === 'amount' || field === 'received'
+      const allowed = isFinancialField ? canEditFinancials : canEditDetails
+      if (!allowed) {
+        console.warn(`Blocked write to "${field}": current role lacks permission.`)
+        markError(day)
+        return
+      }
+
       const date = new Date(curYear, curMonth, day)
       const docIdStr = `${curYear}_${curMonth}_${day}`
 
@@ -228,7 +245,7 @@ export default function SundaySchool() {
         markError(day)
       }
     },
-    [curYear, curMonth]
+    [curYear, curMonth, canEditFinancials, canEditDetails]
   )
 
   // Mag-schedule ng save (debounce). Ipinapakita na ang "Saving..." mula ngayon
@@ -413,6 +430,8 @@ export default function SundaySchool() {
                               value={saved.amount || ''}
                               onChange={e => handleAmount(day, e.target.value)}
                               onBlur={e => commitAmount(day, e.target.value)}
+                              disabled={!canEditFinancials}
+                              title={!canEditFinancials ? 'Only Admins/Moderators can edit amounts' : undefined}
                             />
                           </div>
                         </td>
@@ -420,9 +439,10 @@ export default function SundaySchool() {
                           <button
                             type="button"
                             className={`status ${received ? 'paid' : 'unpaid'}`}
-                            style={{ border: 'none', cursor: 'pointer' }}
-                            onClick={() => toggleReceived(day)}
-                            title="Click to toggle status"
+                            style={{ border: 'none', cursor: canEditFinancials ? 'pointer' : 'not-allowed' }}
+                            onClick={() => canEditFinancials && toggleReceived(day)}
+                            disabled={!canEditFinancials}
+                            title={canEditFinancials ? 'Click to toggle status' : 'Only Admins/Moderators can change status'}
                           >
                             {received ? 'Received' : 'Pending'}
                           </button>
@@ -434,6 +454,8 @@ export default function SundaySchool() {
                             placeholder="Add sponsor..."
                             onChange={e => handleSponsor(day, e.target.value)}
                             onBlur={e => commitSponsor(day, e.target.value)}
+                            disabled={!canEditDetails}
+                            title={!canEditDetails ? 'View only' : undefined}
                           />
                         </td>
                         <td>
@@ -443,6 +465,8 @@ export default function SundaySchool() {
                             placeholder="Add note..."
                             onChange={e => handleNote(day, e.target.value)}
                             onBlur={e => commitNote(day, e.target.value)}
+                            disabled={!canEditDetails}
+                            title={!canEditDetails ? 'View only' : undefined}
                           />
                         </td>
                         <td>

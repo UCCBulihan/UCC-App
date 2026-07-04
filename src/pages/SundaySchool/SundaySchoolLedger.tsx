@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { auth, db } from '../../firebase/firebase'
 import NavigationBar from '../Home/NavigationBar/NavigationBar'
+import { useCurrentUserRole } from './useCurrentUserRole' // adjust path to wherever you place the hook
 import '../Ledger/components/LedgerTracker/LedgerTracker.css' 
 
 // ════════════════════════════════════════════════════════════════
@@ -56,6 +57,11 @@ function fmt(n: number) {
 }
 
 export default function SundaySchoolLedger() {
+  // The ledger is straight financial record-keeping, so the whole
+  // add/edit/delete flow is gated to Admin/Moderator. Member/Viewer get
+  // read-only access to the table and totals.
+  const { role, loading: roleLoading, canEditFinancials } = useCurrentUserRole()
+
   const now = new Date()
   const [curMonth, setCurMonth] = useState(now.getMonth())
   const [curYear, setCurYear] = useState(now.getFullYear())
@@ -147,6 +153,10 @@ export default function SundaySchoolLedger() {
   }
 
   async function handleSave() {
+    if (!canEditFinancials) {
+      console.warn('Blocked ledger save: current role lacks financial edit rights.')
+      return
+    }
     if (!form.amount || !form.description.trim()) return
     if (!currentUser) return
     setSaving(true)
@@ -189,6 +199,10 @@ export default function SundaySchoolLedger() {
   }
 
   async function handleDelete(id: string) {
+    if (!canEditFinancials) {
+      console.warn('Blocked ledger delete: current role lacks financial edit rights.')
+      return
+    }
     try {
       await deleteDoc(doc(db, COLLECTION_NAME, id))
       setDeleteConfirm(null)
@@ -213,6 +227,7 @@ export default function SundaySchoolLedger() {
       <main className="main-content">
         <div className="ldg-root">
 
+
           {/* Header */}
           <div className="ldg-header">
             <div className="ldg-header-left">
@@ -226,10 +241,12 @@ export default function SundaySchoolLedger() {
               <select className="ldg-select" value={curYear} onChange={e => setCurYear(Number(e.target.value))}>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <button className="ldg-add-btn" onClick={() => { setShowForm(true); setEditingId(null); setForm(EMPTY_FORM) }}>
-                <i className="fa-solid fa-plus" aria-hidden="true" />
-                Add Entry
-              </button>
+              {canEditFinancials && (
+                <button className="ldg-add-btn" onClick={() => { setShowForm(true); setEditingId(null); setForm(EMPTY_FORM) }}>
+                  <i className="fa-solid fa-plus" aria-hidden="true" />
+                  Add Entry
+                </button>
+              )}
             </div>
           </div>
 
@@ -257,8 +274,8 @@ export default function SundaySchoolLedger() {
             </div>
           </div>
 
-          {/* Add / Edit Form — bukas sa lahat ng naka-login */}
-          {showForm && (
+          {/* Add / Edit Form — Admin/Moderator lang, hindi na lahat ng naka-login */}
+          {showForm && canEditFinancials && (
             <div className="ldg-form-card">
               <h2 className="ldg-form-title">{editingId ? 'Edit Entry' : 'New Entry'}</h2>
               <div className="ldg-form-grid">
@@ -324,9 +341,11 @@ export default function SundaySchoolLedger() {
               <div className="ldg-empty">
                 <i className="fa-regular fa-folder-open ldg-empty-icon" aria-hidden="true" />
                 <p>No entries for {MONTHS[curMonth]} {curYear}.</p>
-                <button className="ldg-add-btn" onClick={() => setShowForm(true)}>
-                  + Add Entry
-                </button>
+                {canEditFinancials && (
+                  <button className="ldg-add-btn" onClick={() => setShowForm(true)}>
+                    + Add Entry
+                  </button>
+                )}
               </div>
             ) : (
               <div className="ldg-table-scroll">
@@ -359,18 +378,24 @@ export default function SundaySchoolLedger() {
                           − {fmt(e.amount)}
                         </td>
                         <td className="ldg-td-actions">
-                          <button className="ldg-icon-btn" onClick={() => handleEdit(e)} title="Edit">
-                            <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
-                          </button>
-                          {deleteConfirm === e.id ? (
-                            <span className="ldg-delete-confirm">
-                              <button className="ldg-icon-btn ldg-confirm-yes" onClick={() => handleDelete(e.id)}>Delete</button>
-                              <button className="ldg-icon-btn ldg-confirm-no" onClick={() => setDeleteConfirm(null)}>Cancel</button>
-                            </span>
+                          {canEditFinancials ? (
+                            <>
+                              <button className="ldg-icon-btn" onClick={() => handleEdit(e)} title="Edit">
+                                <i className="fa-regular fa-pen-to-square" aria-hidden="true" />
+                              </button>
+                              {deleteConfirm === e.id ? (
+                                <span className="ldg-delete-confirm">
+                                  <button className="ldg-icon-btn ldg-confirm-yes" onClick={() => handleDelete(e.id)}>Delete</button>
+                                  <button className="ldg-icon-btn ldg-confirm-no" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                                </span>
+                              ) : (
+                                <button className="ldg-icon-btn" onClick={() => setDeleteConfirm(e.id)} title="Delete">
+                                  <i className="fa-regular fa-trash-can" aria-hidden="true" />
+                                </button>
+                              )}
+                            </>
                           ) : (
-                            <button className="ldg-icon-btn" onClick={() => setDeleteConfirm(e.id)} title="Delete">
-                              <i className="fa-regular fa-trash-can" aria-hidden="true" />
-                            </button>
+                            <span className="ldg-dash">—</span>
                           )}
                         </td>
                       </tr>
