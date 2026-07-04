@@ -22,10 +22,6 @@ export type RowSaveStatus = 'saving' | 'saved' | 'error'
 
 type SundayField = 'amount' | 'received' | 'note' | 'sponsor'
 
-// ════════════════════════════════════════════════════════════════
-// Constants & pure helpers (would be SundaySchoolUtils.ts if split)
-// ════════════════════════════════════════════════════════════════
-
 const COLLECTION_NAME = 'SUNDAYSCHOOL_INCOME'
 
 const MONTHS = [

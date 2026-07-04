@@ -70,10 +70,16 @@ export function useCurrentUserRole() {
   // Admin/Moderator can touch those.
   const canEditFinancials = role === 'Admin' || role === 'Moderator';
 
-  // Non-financial fields (notes, sponsor names, teacher/topic
-  // assignments) are open to Member and up — Viewer stays read-only
-  // everywhere.
+  // Non-financial fields (notes, sponsor names) are open to Member and
+  // up — Viewer stays read-only everywhere.
   const canEditDetails = role === 'Admin' || role === 'Moderator' || role === 'Member';
 
-  return { role, uid, loading, canEditFinancials, canEditDetails };
+  // Line-Up (teacher/assistant/topic assignments) is scheduling/admin
+  // responsibility, not a Member-level task — restricted to Admin/
+  // Moderator, same bar as financial edits. Kept as its own named flag
+  // (rather than reusing canEditFinancials directly) so the reason for
+  // the restriction stays clear if the two ever need to diverge later.
+  const canManageLineUp = role === 'Admin' || role === 'Moderator';
+
+  return { role, uid, loading, canEditFinancials, canEditDetails, canManageLineUp };
 }

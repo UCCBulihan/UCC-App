@@ -60,7 +60,7 @@ export default function SundaySchoolLedger() {
   // The ledger is straight financial record-keeping, so the whole
   // add/edit/delete flow is gated to Admin/Moderator. Member/Viewer get
   // read-only access to the table and totals.
-  const { role, loading: roleLoading, canEditFinancials } = useCurrentUserRole()
+  const { canEditFinancials } = useCurrentUserRole()
 
   const now = new Date()
   const [curMonth, setCurMonth] = useState(now.getMonth())
@@ -226,7 +226,6 @@ export default function SundaySchoolLedger() {
       <NavigationBar />
       <main className="main-content">
         <div className="ldg-root">
-
 
           {/* Header */}
           <div className="ldg-header">

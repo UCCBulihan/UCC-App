@@ -53,10 +53,10 @@ function emptyEntry(): SundayEntry {
 }
 
 export default function SundaySchoolLineUp() {
-  // Non-financial roster info (teacher/assistant/topic assignments), so
-  // Member and up can edit it. Viewer stays read-only, same as everywhere
-  // else in Sunday School.
-  const { canEditDetails } = useCurrentUserRole();
+  // Line-Up (teacher/assistant/topic assignments) is scheduling/admin
+  // responsibility — Admin/Moderator only, same bar as the Ledger.
+  // Member and Viewer both get read-only access here.
+  const { canManageLineUp } = useCurrentUserRole();
 
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -132,7 +132,7 @@ export default function SundaySchoolLineUp() {
 
   const persistDay = useCallback(
     async (key: string, entry: SundayEntry) => {
-      if (!canEditDetails) {
+      if (!canManageLineUp) {
         console.warn('Blocked roster save: current role (Viewer) is read-only.');
         return;
       }
@@ -172,7 +172,7 @@ export default function SundaySchoolLineUp() {
         delete saveTimers.current[key];
       }
     },
-    [showStatus, canEditDetails]
+    [showStatus, canManageLineUp]
   );
 
   const updateEntry = useCallback(
@@ -283,8 +283,8 @@ export default function SundaySchoolLineUp() {
                           updateEntry(day, (en) => ({ ...en, teacher: value }));
                         }}
                         className="ssl-input"
-                        disabled={!canEditDetails}
-                        title={!canEditDetails ? 'View only' : undefined}
+                        disabled={!canManageLineUp}
+                        title={!canManageLineUp ? 'View only' : undefined}
                       />
                     </div>
 
@@ -306,10 +306,10 @@ export default function SundaySchoolLineUp() {
                               });
                             }}
                             className="ssl-input"
-                            disabled={!canEditDetails}
-                            title={!canEditDetails ? 'View only' : undefined}
+                            disabled={!canManageLineUp}
+                            title={!canManageLineUp ? 'View only' : undefined}
                           />
-                          {entry.assistants.length > 1 && canEditDetails && (
+                          {entry.assistants.length > 1 && canManageLineUp && (
                             <button
                               type="button"
                               aria-label="Remove assistant teacher"
@@ -339,7 +339,7 @@ export default function SundaySchoolLineUp() {
                         </button>
                       )}
 
-                      {canEditDetails && (
+                      {canManageLineUp && (
                         <button
                           type="button"
                           onClick={() => {
@@ -365,8 +365,8 @@ export default function SundaySchoolLineUp() {
                           updateEntry(day, (en) => ({ ...en, topic: value }));
                         }}
                         className="ssl-input"
-                        disabled={!canEditDetails}
-                        title={!canEditDetails ? 'View only' : undefined}
+                        disabled={!canManageLineUp}
+                        title={!canManageLineUp ? 'View only' : undefined}
                       />
                     </div>
                   </div>
