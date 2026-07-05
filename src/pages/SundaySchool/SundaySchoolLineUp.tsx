@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   documentId,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -40,6 +41,13 @@ const MONTHS = [
 const ORDINALS = ["First Sunday", "Second Sunday", "Third Sunday", "Fourth Sunday", "Fifth Sunday"];
 const COLLAPSE_THRESHOLD = 3;
 const MAX_SUGGESTIONS = 8;
+
+// Module-level cache so navigating to/from this page within the same
+// session doesn't re-read the whole Members collection every time —
+// only once per MEMBERS_CACHE_TTL_MS window, shared across mounts.
+const MEMBERS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let membersCache: MemberOption[] | null = null;
+let membersCacheAt = 0;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -202,13 +210,23 @@ export default function SundaySchoolLineUp() {
     }
   }, []);
 
-  // Live-subscribe to the Members list, for the teacher/assistant name
-  // suggestion dropdown. Archived members are excluded from suggestions.
+  // One-time fetch (not a live listener) of the Members list, for the
+  // teacher/assistant name suggestion dropdown. Archived members are
+  // excluded. Result is cached at module scope for MEMBERS_CACHE_TTL_MS,
+  // so re-visiting this page within that window costs zero extra reads —
+  // the list doesn't need to be second-by-second live for autocomplete.
   useEffect(() => {
-    const q = query(collection(db, MEMBERS_COLLECTION_NAME), where("isArchived", "==", false));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    let cancelled = false;
+
+    async function loadMembers() {
+      const isFresh = membersCache && Date.now() - membersCacheAt < MEMBERS_CACHE_TTL_MS;
+      if (isFresh) {
+        setMembers(membersCache as MemberOption[]);
+        return;
+      }
+      try {
+        const q = query(collection(db, MEMBERS_COLLECTION_NAME), where("isArchived", "==", false));
+        const snapshot = await getDocs(q);
         const list: MemberOption[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() as Record<string, unknown>;
@@ -219,13 +237,18 @@ export default function SundaySchoolLineUp() {
           if (fullName) list.push({ id: docSnap.id, fullName });
         });
         list.sort((a, b) => a.fullName.localeCompare(b.fullName));
-        setMembers(list);
-      },
-      (err) => {
+        membersCache = list;
+        membersCacheAt = Date.now();
+        if (!cancelled) setMembers(list);
+      } catch (err) {
         console.error("Failed to load members for name suggestions:", err);
       }
-    );
-    return () => unsubscribe();
+    }
+
+    loadMembers();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Live-subscribe to this month's Sunday documents.
