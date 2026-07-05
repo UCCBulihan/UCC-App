@@ -24,7 +24,13 @@ interface SundayEntry {
 
 type RosterData = Record<string, SundayEntry>; // key: "YYYY-MM-DD"
 
+interface MemberOption {
+  id: string;
+  fullName: string;
+}
+
 const COLLECTION_NAME = "SUNDAYSCHOOLLINEUP";
+const MEMBERS_COLLECTION_NAME = "MEMBERS";
 const MAX_NAME_LENGTH = 80;
 const MAX_TOPIC_LENGTH = 120;
 const MONTHS = [
@@ -33,6 +39,7 @@ const MONTHS = [
 ];
 const ORDINALS = ["First Sunday", "Second Sunday", "Third Sunday", "Fourth Sunday", "Fifth Sunday"];
 const COLLAPSE_THRESHOLD = 3;
+const MAX_SUGGESTIONS = 8;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -52,6 +59,117 @@ function emptyEntry(): SundayEntry {
   return { teacher: "", assistants: [""], topic: "" };
 }
 
+/**
+ * Text input with a name-suggestion dropdown sourced from the Members list.
+ * Typing filters the list; clicking (or arrow keys + Enter) fills the input
+ * with the selected member's full name. Free text is still allowed — this
+ * is a suggestion helper, not a hard-locked select.
+ */
+function MemberAutocompleteInput({
+  value,
+  onChange,
+  placeholder,
+  maxLength,
+  disabled,
+  title,
+  members,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+  disabled?: boolean;
+  title?: string;
+  members: MemberOption[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    const list = q
+      ? members.filter((m) => m.fullName.toLowerCase().includes(q))
+      : members;
+    return list.slice(0, MAX_SUGGESTIONS);
+  }, [value, members]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [suggestions.length, isOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function selectMember(name: string) {
+    onChange(name);
+    setIsOpen(false);
+  }
+
+  return (
+    <div className="ssl-autocomplete-wrap" ref={wrapRef}>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        autoComplete="off"
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={(e) => {
+          if (!isOpen || suggestions.length === 0) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.max(i - 1, 0));
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            selectMember(suggestions[activeIndex].fullName);
+          } else if (e.key === "Escape") {
+            setIsOpen(false);
+          }
+        }}
+        className="ssl-input"
+        disabled={disabled}
+        title={title}
+      />
+      {isOpen && !disabled && suggestions.length > 0 && (
+        <div className="ssl-autocomplete-dropdown" role="listbox">
+          {suggestions.map((m, i) => (
+            <div
+              key={m.id}
+              role="option"
+              aria-selected={i === activeIndex}
+              className={"ssl-autocomplete-item" + (i === activeIndex ? " is-active" : "")}
+              // onMouseDown (not onClick) fires before the input's onBlur,
+              // so the selection registers before the dropdown closes.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectMember(m.fullName);
+              }}
+              onMouseEnter={() => setActiveIndex(i)}
+            >
+              {m.fullName}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SundaySchoolLineUp() {
   // Line-Up (teacher/assistant/topic assignments) is scheduling/admin
   // responsibility — Admin/Moderator only, same bar as the Ledger.
@@ -66,6 +184,7 @@ export default function SundaySchoolLineUp() {
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState({ text: "", visible: false, saving: false });
+  const [members, setMembers] = useState<MemberOption[]>([]);
 
   // Per-day debounce timers, so editing one Sunday doesn't reset another's save timer.
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
@@ -81,6 +200,32 @@ export default function SundaySchoolLineUp() {
         setStatus((s) => ({ ...s, visible: false }));
       }, 1800);
     }
+  }, []);
+
+  // Live-subscribe to the Members list, for the teacher/assistant name
+  // suggestion dropdown. Archived members are excluded from suggestions.
+  useEffect(() => {
+    const q = query(collection(db, MEMBERS_COLLECTION_NAME), where("isArchived", "==", false));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: MemberOption[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as Record<string, unknown>;
+          const fullName = [data.firstName, data.lastName]
+            .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+            .join(" ")
+            .trim();
+          if (fullName) list.push({ id: docSnap.id, fullName });
+        });
+        list.sort((a, b) => a.fullName.localeCompare(b.fullName));
+        setMembers(list);
+      },
+      (err) => {
+        console.error("Failed to load members for name suggestions:", err);
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   // Live-subscribe to this month's Sunday documents.
@@ -273,16 +418,14 @@ export default function SundaySchoolLineUp() {
 
                     <div className="ssl-field">
                       <label className="ssl-label">Teacher</label>
-                      <input
-                        type="text"
+                      <MemberAutocompleteInput
                         value={entry.teacher}
                         placeholder="Teacher's name"
                         maxLength={MAX_NAME_LENGTH}
-                        onChange={(e) => {
-                          const value = e.target.value;
+                        members={members}
+                        onChange={(value) => {
                           updateEntry(day, (en) => ({ ...en, teacher: value }));
                         }}
-                        className="ssl-input"
                         disabled={!canManageLineUp}
                         title={!canManageLineUp ? 'View only' : undefined}
                       />
@@ -292,20 +435,18 @@ export default function SundaySchoolLineUp() {
                       <label className="ssl-label">Assistant Teacher(s)</label>
                       {visibleAssistants.map((value, aIdx) => (
                         <div key={aIdx} className="ssl-assistant-row">
-                          <input
-                            type="text"
+                          <MemberAutocompleteInput
                             value={value}
                             placeholder="Assistant teacher's name"
                             maxLength={MAX_NAME_LENGTH}
-                            onChange={(e) => {
-                              const v = e.target.value;
+                            members={members}
+                            onChange={(v) => {
                               updateEntry(day, (en) => {
                                 const assistants = [...en.assistants];
                                 assistants[aIdx] = v;
                                 return { ...en, assistants };
                               });
                             }}
-                            className="ssl-input"
                             disabled={!canManageLineUp}
                             title={!canManageLineUp ? 'View only' : undefined}
                           />

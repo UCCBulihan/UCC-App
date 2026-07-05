@@ -209,6 +209,41 @@
   flex: 1;
   min-width: 0;
 }
+.ssl-assistant-row .ssl-autocomplete-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.ssl-autocomplete-wrap {
+  position: relative;
+}
+
+.ssl-autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.ssl-autocomplete-item {
+  padding: 9px 12px;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 14px;
+  color: #111827;
+  cursor: pointer;
+}
+.ssl-autocomplete-item.is-active,
+.ssl-autocomplete-item:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
 
 .ssl-remove-btn {
   width: 36px;
