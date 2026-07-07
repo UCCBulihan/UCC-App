@@ -274,7 +274,6 @@ export function useRoles() {
     return matchSearch && matchFilter;
   });
 
-  // 
   return {
     currentUser,
     currentUserUid,
