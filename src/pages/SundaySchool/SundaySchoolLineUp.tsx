@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   documentId,
   getDocs,
@@ -18,7 +19,7 @@ import { useCurrentUserRole } from './useCurrentUserRole.ts'; // adjust path to 
 import './SundaySchoolLineUp.css';
 
 interface SundayEntry {
-  teacher: string;
+  teachers: string[];
   assistants: string[];
   topic: string;
 }
@@ -64,7 +65,7 @@ function getSundays(year: number, month: number): number[] {
   return days;
 }
 function emptyEntry(): SundayEntry {
-  return { teacher: "", assistants: [""], topic: "" };
+  return { teachers: [""], assistants: [""], topic: "" };
 }
 
 /**
@@ -274,9 +275,17 @@ export default function SundaySchoolLineUp() {
             const key = docSnap.id;
             // Don't let a server echo clobber an edit that's still pending save.
             if (saveTimers.current[key]) return;
-            const data = docSnap.data() as Partial<SundayEntry>;
+            // "teachers" is the current field. Older docs may still have a
+            // single "teacher" string — read that as a one-item array so
+            // existing data keeps showing up correctly.
+            const data = docSnap.data() as Partial<SundayEntry> & { teacher?: string };
+            const teachers = Array.isArray(data.teachers) && data.teachers.length
+              ? (data.teachers as string[])
+              : data.teacher
+              ? [data.teacher]
+              : [""];
             next[key] = {
-              teacher: data.teacher ?? "",
+              teachers,
               assistants:
                 Array.isArray(data.assistants) && data.assistants.length
                   ? (data.assistants as string[])
@@ -304,15 +313,22 @@ export default function SundaySchoolLineUp() {
         console.warn('Blocked roster save: current role (Viewer) is read-only.');
         return;
       }
+      // Note: we intentionally DON'T filter out blank teacher/assistant
+      // slots here. If we did, an empty slot the user just added (via
+      // "Add another teacher/assistant") would get stripped out of the
+      // saved doc as soon as the 600ms debounce fires — then the live
+      // onSnapshot listener would echo back the trimmed data and the
+      // still-empty box would visually vanish from under the user before
+      // they get a chance to type a name into it.
       const cleaned = {
-        teacher: entry.teacher.trim().slice(0, MAX_NAME_LENGTH),
-        assistants: entry.assistants
-          .map((a) => a.trim().slice(0, MAX_NAME_LENGTH))
-          .filter((a) => a.length > 0),
+        teachers: entry.teachers.map((t) => t.trim().slice(0, MAX_NAME_LENGTH)),
+        assistants: entry.assistants.map((a) => a.trim().slice(0, MAX_NAME_LENGTH)),
         topic: entry.topic.trim().slice(0, MAX_TOPIC_LENGTH),
       };
       const isEntirelyEmpty =
-        !cleaned.teacher && cleaned.assistants.length === 0 && !cleaned.topic;
+        cleaned.teachers.every((t) => t.length === 0) &&
+        cleaned.assistants.every((a) => a.length === 0) &&
+        !cleaned.topic;
 
       showStatus("Saving...", true);
       try {
@@ -326,6 +342,9 @@ export default function SundaySchoolLineUp() {
             {
               date: key,
               ...cleaned,
+              // Clear out the old single-teacher field from legacy docs now
+              // that "teachers" (array) is the source of truth.
+              teacher: deleteField(),
               updatedBy: auth.currentUser?.displayName ?? auth.currentUser?.email ?? null,
               updatedAt: serverTimestamp(),
             },
@@ -440,18 +459,55 @@ export default function SundaySchoolLineUp() {
                     </p>
 
                     <div className="ssl-field">
-                      <label className="ssl-label">Teacher</label>
-                      <MemberAutocompleteInput
-                        value={entry.teacher}
-                        placeholder="Teacher's name"
-                        maxLength={MAX_NAME_LENGTH}
-                        members={members}
-                        onChange={(value) => {
-                          updateEntry(day, (en) => ({ ...en, teacher: value }));
-                        }}
-                        disabled={!canManageLineUp}
-                        title={!canManageLineUp ? 'View only' : undefined}
-                      />
+                      <label className="ssl-label">
+                        Teacher{entry.teachers.length > 1 ? "s" : ""}
+                      </label>
+                      {entry.teachers.map((value, tIdx) => (
+                        <div key={tIdx} className="ssl-assistant-row">
+                          <MemberAutocompleteInput
+                            value={value}
+                            placeholder="Teacher's name"
+                            maxLength={MAX_NAME_LENGTH}
+                            members={members}
+                            onChange={(v) => {
+                              updateEntry(day, (en) => {
+                                const teachers = [...en.teachers];
+                                teachers[tIdx] = v;
+                                return { ...en, teachers };
+                              });
+                            }}
+                            disabled={!canManageLineUp}
+                            title={!canManageLineUp ? 'View only' : undefined}
+                          />
+                          {entry.teachers.length > 1 && canManageLineUp && (
+                            <button
+                              type="button"
+                              aria-label="Remove teacher"
+                              onClick={() => {
+                                updateEntry(day, (en) => {
+                                  const teachers = en.teachers.filter((_, i) => i !== tIdx);
+                                  return { ...en, teachers: teachers.length ? teachers : [""] };
+                                });
+                              }}
+                              className="ssl-remove-btn"
+                            >
+                              <i className="fa-solid fa-xmark" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+
+                      {canManageLineUp && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateEntry(day, (en) => ({ ...en, teachers: [...en.teachers, ""] }));
+                          }}
+                          className="ssl-add-link"
+                        >
+                          <i className="fa-solid fa-plus" aria-hidden="true" /> Add another teacher
+                        </button>
+                      )}
                     </div>
 
                     <div className="ssl-field">
