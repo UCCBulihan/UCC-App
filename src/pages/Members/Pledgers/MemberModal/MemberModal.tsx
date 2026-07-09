@@ -90,7 +90,7 @@ export default function MemberModal({
           </div>
         </div>
 
-        <p className="section-label">Meta</p>
+        {/* <p className="section-label">Meta</p> */}
         <div className="field">
           <label>{isEdit ? 'Modified By' : 'Added By'}</label>
           <div className="input-wrap" style={{ opacity: 0.7 }}>

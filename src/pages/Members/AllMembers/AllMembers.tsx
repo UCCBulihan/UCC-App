@@ -61,7 +61,8 @@ export default function AllMembers() {
           currentUser={currentUser}
           onClose={closeModal}
           onFormChange={handleFormChange}
-          showPledgerToggle={modalMode !== 'edit'}
+          // showPledgerToggle={modalMode !== 'edit'}
+          showPledgerToggle={false}  
           onSubmit={modalMode === 'edit' ? editMember : addMember}
         />
 
