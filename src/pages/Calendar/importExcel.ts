@@ -15,15 +15,31 @@
 // Any row with column A as a date but column C non-empty is treated as a
 // normal activity on that exact date (covers a few rows in the source file
 // where a full date was typed instead of a plain day number).
+//
+// IMPORTANT — category colors are NOT assumed to be stable across files.
+// Different years' workbooks have reused the same "color guide" idea but
+// swapped which color means which category (e.g. District/Local swapped
+// between the 2025-2026 and 2026-2027 templates), and some add categories
+// that didn't exist before (e.g. "Mission"). So on every import we first
+// look for the sheet's own color-guide legend (a row near the top where
+// each category name is typed into a cell shaded with its own color) and
+// build the color->category mapping from THAT, specific to this file. The
+// static FILL_TO_CATEGORY table below is only a fallback for files that
+// don't have a machine-readable legend (older files where the "color
+// guide" was just descriptive text, not individually-colored cells).
 
 import * as XLSX from 'xlsx'
 
-export type ImportCategoryName =
-  | 'National'
-  | 'District'
-  | 'Local'
-  | 'Pledges & Special Offerings'
-  | 'Departmental Meetings'
+// No longer a fixed set — categories are whatever names the workbook's own
+// legend defines (plus whatever already exists in Firestore). Kept as a
+// named type (rather than switching every call site to plain `string`) so
+// intent stays clear at call sites.
+export type ImportCategoryName = string
+
+export type CategoryDefaults = {
+  color: string
+  icon: string
+}
 
 export type ParsedImportEvent = {
   // One row per calendar date this event occupies (multi-day rows are
@@ -48,23 +64,21 @@ export type ImportIssue = {
 export type ImportResult = {
   events: ParsedImportEvent[]
   issues: ImportIssue[]
+  // Default color/icon for every category this file's legend (or fallback
+  // table) defines — including brand-new ones like "Mission" that don't
+  // exist in Firestore yet. Keyed by category name. Callers should use
+  // this instead of any hardcoded color/icon table when creating new
+  // categories or rendering preview swatches, since colors are specific
+  // to the file that was just parsed.
+  categoryDefaults: Record<string, CategoryDefaults>
 }
 
-// Default category color guide, used only as a fallback for newly-created
-// categories during import. If a category with this name already exists in
-// Firestore, its existing color is left untouched.
-export const DEFAULT_CATEGORY_COLORS: Record<ImportCategoryName, string> = {
-  National: '#525252',
-  District: '#7c3aed',
-  Local: '#16a34a',
-  'Pledges & Special Offerings': '#dc2626',
-  'Departmental Meetings': '#d97706',
-}
-
-// Default FontAwesome icon for each import category, used the same way as
-// DEFAULT_CATEGORY_COLORS above — only applied when the category is newly
-// created by an import, never overwrites an existing category's icon.
-export const DEFAULT_CATEGORY_ICONS: Record<ImportCategoryName, string> = {
+// Fallback icon for a small set of well-known category names — applied
+// only when a file's legend introduces one of these names but doesn't
+// (can't) specify an icon of its own, since icons aren't color-codeable.
+// Anything outside this list defaults to no icon (a plain color dot in
+// the UI), which is a perfectly valid look and avoids guessing wrong.
+const KNOWN_CATEGORY_ICONS: Record<string, string> = {
   National: 'fa-solid fa-globe',
   District: 'fa-solid fa-map-marker-alt',
   Local: 'fa-solid fa-church',
@@ -72,27 +86,122 @@ export const DEFAULT_CATEGORY_ICONS: Record<ImportCategoryName, string> = {
   'Departmental Meetings': 'fa-solid fa-briefcase',
 }
 
-// ARGB fill colors as they appear in this specific workbook's color guide.
+// Retained for backwards compatibility with any existing callers/imports
+// elsewhere in the app. New code should prefer the per-file
+// `categoryDefaults` returned by parseMinistryPlanWorkbook instead, since
+// these static tables can't reflect a given file's actual legend colors
+// or categories it doesn't know about (e.g. "Mission").
+export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
+  National: '#525252',
+  District: '#7c3aed',
+  Local: '#16a34a',
+  'Pledges & Special Offerings': '#dc2626',
+  'Departmental Meetings': '#d97706',
+}
+
+export const DEFAULT_CATEGORY_ICONS: Record<string, string> = KNOWN_CATEGORY_ICONS
+
+// Fallback ARGB fill colors, used only when a workbook has no
+// machine-readable color-guide legend of its own (see header comment).
 // '00000000' is openpyxl/xlsx's representation of "no fill" (transparent),
-// which this sheet uses interchangeably with explicit white for National.
-const FILL_TO_CATEGORY: Record<string, ImportCategoryName> = {
-  '00000000': 'National',
-  FFFFFFFF: 'National',
-  FFB4A7D6: 'District',
-  FFB6D7A8: 'Local',
-  FFEA9999: 'Pledges & Special Offerings',
-  FFFFE599: 'Departmental Meetings',
+// which older sheets used interchangeably with explicit white for National.
+const FALLBACK_FILL_TO_CATEGORY: Record<string, ImportCategoryName> = {
+  '000000': 'National', // no-fill / transparent, normalized
+  FFFFFF: 'National',
+  B4A7D6: 'District',
+  B6D7A8: 'Local',
+  EA9999: 'Pledges & Special Offerings',
+  FFE599: 'Departmental Meetings',
 }
 
-function getFillArgb(cell: XLSX.CellObject | undefined): string {
+// Normalizes any color string xlsx/openpyxl might hand back — 6-char RGB
+// ("B4A7D6"), 8-char ARGB with alpha first ("FFB4A7D6"), or 8-char ARGB
+// with a different/zeroed alpha byte ("00B4A7D6", seen in some workbooks
+// exported by other tools) — down to a plain 6-char RGB, uppercase. Alpha
+// is intentionally ignored: it varies between files/exporters for reasons
+// that have nothing to do with the actual highlight color the sheet's
+// author picked.
+function normalizeRgb6(raw: string | undefined | null): string | null {
+  if (!raw || typeof raw !== 'string') return null
+  const hex = raw.replace(/[^0-9a-fA-F]/g, '')
+  if (hex.length < 6) return null
+  return hex.slice(-6).toUpperCase()
+}
+
+function getCellRgb6(cell: XLSX.CellObject | undefined): string | null {
   const fill = (cell as any)?.s?.fgColor?.rgb
-  if (typeof fill === 'string') return `FF${fill}`.slice(-8).toUpperCase()
-  return '00000000'
+  return normalizeRgb6(typeof fill === 'string' ? fill : undefined)
 }
 
-function categoryForCell(cell: XLSX.CellObject | undefined): ImportCategoryName {
-  const argb = getFillArgb(cell)
-  return FILL_TO_CATEGORY[argb] ?? 'National'
+function cellText(cell: XLSX.CellObject | undefined): string {
+  if (!cell || cell.v === undefined || cell.v === null) return ''
+  return String(cell.v).trim()
+}
+
+function rgbDistance(a: string, b: string): number {
+  const ar = parseInt(a.slice(0, 2), 16)
+  const ag = parseInt(a.slice(2, 4), 16)
+  const ab = parseInt(a.slice(4, 6), 16)
+  const br = parseInt(b.slice(0, 2), 16)
+  const bg = parseInt(b.slice(2, 4), 16)
+  const bb = parseInt(b.slice(4, 6), 16)
+  return Math.sqrt((ar - br) ** 2 + (ag - bg) ** 2 + (ab - bb) ** 2)
+}
+
+// Scans the top of the sheet for a "color guide" legend: a row where at
+// least two cells each hold a short category name AND are shaded with a
+// distinct, non-transparent fill color. Returns a map of normalized RGB6
+// -> category name, or null if no such row is found (older files typed
+// the legend as one plain paragraph of text instead of individually
+// colored cells, which this can't machine-read).
+function findLegendMap(sheet: XLSX.WorkSheet, range: XLSX.Range): Map<string, string> | null {
+  const searchEndRow = Math.min(range.e.r, range.s.r + 25)
+
+  // Prefer scanning near an explicit "Color Guide" label if we can find
+  // one, but fall back to scanning the whole top-of-sheet window
+  // regardless — the label wording isn't guaranteed either.
+  for (let r = range.s.r; r <= searchEndRow; r++) {
+    const candidates: { rgb: string; name: string }[] = []
+    for (let c = range.s.c; c <= Math.min(range.e.c, range.s.c + 12); c++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r, c })]
+      const text = cellText(cell)
+      const rgb = getCellRgb6(cell)
+      if (!text || !rgb) continue
+      if (text.length > 45 || text.includes('\n')) continue // not a short legend label
+      const upper = text.toUpperCase()
+      if (upper === 'DATE' || upper === 'ACTIVITY' || upper === 'DAY' || upper === 'IN-CHARGE' || upper === 'PLACE') continue
+      candidates.push({ rgb, name: text })
+    }
+    // A real legend row has several distinctly-colored short labels next
+    // to each other. Require at least 2 distinct colors to avoid false
+    // positives on ordinary single-color header rows.
+    const distinctColors = new Set(candidates.map((c) => c.rgb))
+    if (candidates.length >= 2 && distinctColors.size >= 2) {
+      const map = new Map<string, string>()
+      for (const { rgb, name } of candidates) map.set(rgb, name)
+      return map
+    }
+  }
+
+  return null
+}
+
+// Resolves a cell's category using the file's own legend when available,
+// exact-matching first, then falling back to the closest legend color by
+// RGB distance (handles stray/off-guide colors like a manually-tweaked
+// cell that's close to, but not exactly, one of the legend's colors).
+// Only falls all the way back to 'National' when there's no fill at all.
+function resolveCategory(rgb6: string | null, legend: Map<string, string>): ImportCategoryName {
+  if (!rgb6) return 'National'
+  const exact = legend.get(rgb6)
+  if (exact) return exact
+
+  let best: { name: string; dist: number } | null = null
+  for (const [legendRgb, name] of legend) {
+    const dist = rgbDistance(rgb6, legendRgb)
+    if (!best || dist < best.dist) best = { name, dist }
+  }
+  return best ? best.name : 'National'
 }
 
 function pad2(n: number): string {
@@ -149,11 +258,6 @@ function parseDayField(
   return null
 }
 
-function cellText(cell: XLSX.CellObject | undefined): string {
-  if (!cell || cell.v === undefined || cell.v === null) return ''
-  return String(cell.v).trim()
-}
-
 // Picks the most likely "calendar of activities" sheet when no explicit
 // sheet name is given: the sheet whose column C (Activity) has the most
 // non-empty rows. This avoids hardcoding a specific sheet name/template,
@@ -176,6 +280,17 @@ function pickBestSheet(workbook: XLSX.WorkBook): { name: string; sheet: XLSX.Wor
   return best ? { name: best.name, sheet: best.sheet } : null
 }
 
+function buildCategoryDefaults(legend: Map<string, string>): Record<string, CategoryDefaults> {
+  const defaults: Record<string, CategoryDefaults> = {}
+  for (const [rgb6, name] of legend) {
+    defaults[name] = {
+      color: `#${rgb6.toLowerCase()}`,
+      icon: KNOWN_CATEGORY_ICONS[name] ?? '',
+    }
+  }
+  return defaults
+}
+
 export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: string): ImportResult {
   const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, cellStyles: true })
 
@@ -186,6 +301,7 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
       return {
         events: [],
         issues: [{ sourceRow: 0, rawDateValue: '', title: '', reason: `Sheet "${sheetName}" not found in workbook.` }],
+        categoryDefaults: {},
       }
     }
   } else {
@@ -194,12 +310,19 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
       return {
         events: [],
         issues: [{ sourceRow: 0, rawDateValue: '', title: '', reason: 'No usable sheet found in this file.' }],
+        categoryDefaults: {},
       }
     }
     sheet = picked.sheet
   }
 
   const range = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1:A1')
+
+  // Prefer this file's own legend; fall back to the static table (already
+  // normalized to 6-char RGB keys) for files without a colored legend row.
+  const legend = findLegendMap(sheet, range) ?? new Map(Object.entries(FALLBACK_FILL_TO_CATEGORY))
+  const categoryDefaults = buildCategoryDefaults(legend)
+
   const events: ParsedImportEvent[] = []
   const issues: ImportIssue[] = []
 
@@ -246,7 +369,7 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
       continue
     }
 
-    const category = categoryForCell(cellC)
+    const category = resolveCategory(getCellRgb6(cellC), legend)
     const time = cellText(cellB)
     const inCharge = cellText(cellD)
     const place = cellText(cellE)
@@ -274,5 +397,5 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
     }
   }
 
-  return { events, issues }
+  return { events, issues, categoryDefaults }
 }

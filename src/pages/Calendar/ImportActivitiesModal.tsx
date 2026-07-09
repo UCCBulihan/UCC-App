@@ -9,11 +9,10 @@ import {
 import { db } from '../../firebase/firebase'
 import {
   parseMinistryPlanWorkbook,
-  DEFAULT_CATEGORY_COLORS,
-  DEFAULT_CATEGORY_ICONS,
   type ParsedImportEvent,
   type ImportIssue,
   type ImportCategoryName,
+  type CategoryDefaults,
 } from './importExcel'
 import { getIconColor } from './categoryIcons'
 
@@ -46,6 +45,12 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
   const [fileName, setFileName] = useState<string | null>(null)
   const [rows, setRows] = useState<RowState[]>([])
   const [issues, setIssues] = useState<ImportIssue[]>([])
+  // Default color/icon per category as defined by THIS file's own legend
+  // (falls back to the built-in table only for files with no colored
+  // legend row — see importExcel.ts). Colors and even which categories
+  // exist can differ from one imported file to the next, so this is
+  // re-derived on every parse rather than using a fixed table.
+  const [categoryDefaults, setCategoryDefaults] = useState<Record<string, CategoryDefaults>>({})
   const [issueDates, setIssueDates] = useState<Record<number, string>>({})
   const [parseError, setParseError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -62,13 +67,14 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
     reader.onload = () => {
       try {
         const buffer = reader.result as ArrayBuffer
-        const { events, issues: parsedIssues } = parseMinistryPlanWorkbook(buffer)
+        const { events, issues: parsedIssues, categoryDefaults: parsedDefaults } = parseMinistryPlanWorkbook(buffer)
         if (events.length === 0 && parsedIssues.length === 0) {
           setParseError('No activities were found in this file. Make sure it has a "2025-2026" sheet in the expected format.')
           return
         }
         setRows(events.map((e) => ({ ...e, included: true })))
         setIssues(parsedIssues)
+        setCategoryDefaults(parsedDefaults)
         setIssueDates({})
         setStep('preview')
       } catch (err) {
@@ -105,10 +111,15 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
     categories.forEach((c) => idByName.set(c.name, c.id))
 
     for (const name of newCategoryNames) {
+      // Falls back to a neutral gray only if this category somehow isn't
+      // in categoryDefaults either (shouldn't happen — every category a
+      // row can resolve to comes from the same legend that built this
+      // map — but better a plain gray than a broken Firestore write).
+      const defaults = categoryDefaults[name]
       const docRef = await addDoc(collection(db, 'CATEGORIES'), {
         name,
-        color: DEFAULT_CATEGORY_COLORS[name],
-        icon: DEFAULT_CATEGORY_ICONS[name],
+        color: defaults?.color ?? '#888888',
+        icon: defaults?.icon ?? '',
         createdAt: serverTimestamp(),
       })
       idByName.set(name, docRef.id)
@@ -290,8 +301,9 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
                   {normalRows.map((row) => {
                     const actualIndex = rows.indexOf(row)
                     const existingCategory = categoryByName.get(row.category)
-                    const existingColor = existingCategory?.color ?? DEFAULT_CATEGORY_COLORS[row.category]
-                    const existingIcon = existingCategory?.icon ?? DEFAULT_CATEGORY_ICONS[row.category]
+                    const defaults = categoryDefaults[row.category]
+                    const existingColor = existingCategory?.color ?? defaults?.color ?? '#888888'
+                    const existingIcon = existingCategory?.icon ?? defaults?.icon ?? ''
                     return (
                       <tr key={`${row.sourceRow}-${row.date}`} className={row.included ? '' : 'calendar-import-row-excluded'}>
                         <td className="calendar-import-cell-checkbox">
