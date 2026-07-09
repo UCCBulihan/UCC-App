@@ -291,6 +291,16 @@ function buildCategoryDefaults(legend: Map<string, string>): Record<string, Cate
   return defaults
 }
 
+// Normalizes a category name for MATCHING purposes only — never for
+// display. Case differences ("MISSION" vs "Mission"), extra/missing
+// spaces, and leading/trailing whitespace shouldn't cause a file's legend
+// to be treated as introducing a brand-new category when an equivalent
+// one already exists in Firestore. Callers should still show/store the
+// original (un-normalized) spelling.
+export function normalizeCategoryKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: string): ImportResult {
   const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true, cellStyles: true })
 

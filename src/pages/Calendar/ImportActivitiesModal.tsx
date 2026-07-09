@@ -9,6 +9,7 @@ import {
 import { db } from '../../firebase/firebase'
 import {
   parseMinistryPlanWorkbook,
+  normalizeCategoryKey,
   type ParsedImportEvent,
   type ImportIssue,
   type ImportCategoryName,
@@ -100,15 +101,26 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
   }
 
   const includedCount = rows.filter((r) => r.included).length
-  const categoryByName = new Map(categories.map((c) => [c.name, c]))
+  // Matched loosely (case/whitespace-insensitive) so a file whose legend
+  // spells a category "MISSION" or "Mission " still resolves to an
+  // existing "Mission" category instead of creating a near-duplicate.
+  const categoryByNormalizedName = new Map(categories.map((c) => [normalizeCategoryKey(c.name), c]))
   const usedCategoryNames = new Set<ImportCategoryName>(rows.filter((r) => r.included).map((r) => r.category))
-  const newCategoryNames = Array.from(usedCategoryNames).filter((name) => !categoryByName.has(name))
+  const newCategoryNames = Array.from(usedCategoryNames).filter(
+    (name) => !categoryByNormalizedName.has(normalizeCategoryKey(name)),
+  )
 
   async function ensureCategoriesExist(): Promise<Map<string, string>> {
-    // Returns a map of category name -> Firestore doc id, creating any
-    // categories that don't already exist (matched by exact name).
+    // Returns a map of category name (as it appears on the parsed rows)
+    // -> Firestore doc id, creating any categories that don't already
+    // exist. Existing categories are matched loosely by name so minor
+    // spelling/casing differences from the file's legend don't spawn
+    // duplicates.
     const idByName = new Map<string, string>()
-    categories.forEach((c) => idByName.set(c.name, c.id))
+    for (const name of usedCategoryNames) {
+      const existing = categoryByNormalizedName.get(normalizeCategoryKey(name))
+      if (existing) idByName.set(name, existing.id)
+    }
 
     for (const name of newCategoryNames) {
       // Falls back to a neutral gray only if this category somehow isn't
@@ -300,7 +312,7 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
                 <tbody>
                   {normalRows.map((row) => {
                     const actualIndex = rows.indexOf(row)
-                    const existingCategory = categoryByName.get(row.category)
+                    const existingCategory = categoryByNormalizedName.get(normalizeCategoryKey(row.category))
                     const defaults = categoryDefaults[row.category]
                     const existingColor = existingCategory?.color ?? defaults?.color ?? '#888888'
                     const existingIcon = existingCategory?.icon ?? defaults?.icon ?? ''
