@@ -51,6 +51,12 @@ export type ParsedImportEvent = {
   place: string
   budget: string
   category: ImportCategoryName
+  // False when this row's color didn't exactly match a legend entry and
+  // had to be resolved via closest-color guessing. Combined with
+  // categoryMatchDistance, lets the conflicts step decide whether to
+  // trust the guess silently or ask the user to confirm/reassign it.
+  categoryExactMatch: boolean
+  categoryMatchDistance: number
   sourceRow: number // 1-based Excel row, for traceability in the preview UI
 }
 
@@ -59,6 +65,13 @@ export type ImportIssue = {
   rawDateValue: string
   title: string
   reason: string
+}
+
+export type UncertainCategoryRow = {
+  sourceRow: number
+  title: string
+  guessedCategory: ImportCategoryName
+  distance: number
 }
 
 export type ImportResult = {
@@ -71,6 +84,12 @@ export type ImportResult = {
   // categories or rendering preview swatches, since colors are specific
   // to the file that was just parsed.
   categoryDefaults: Record<string, CategoryDefaults>
+  // Rows whose category couldn't be matched exactly against the legend
+  // and whose closest-color guess wasn't confident enough to trust
+  // silently (see CONFIDENT_MATCH_DISTANCE). The row still gets the
+  // guessed category by default, but callers should let the user review
+  // and override these before importing.
+  uncertainRows: UncertainCategoryRow[]
 }
 
 // Fallback icon for a small set of well-known category names — applied
@@ -150,11 +169,15 @@ function rgbDistance(a: string, b: string): number {
 
 // Scans the top of the sheet for a "color guide" legend: a row where at
 // least two cells each hold a short category name AND are shaded with a
-// distinct, non-transparent fill color. Returns a map of normalized RGB6
-// -> category name, or null if no such row is found (older files typed
-// the legend as one plain paragraph of text instead of individually
-// colored cells, which this can't machine-read).
-function findLegendMap(sheet: XLSX.WorkSheet, range: XLSX.Range): Map<string, string> | null {
+// distinct, non-transparent fill color. Returns the map of normalized
+// RGB6 -> category name AND that row's index (0-based, matching `range`),
+// so the main parsing loop can skip it outright — otherwise its own
+// label cells (e.g. column A = "National", column C = "Local") get
+// mistaken for an ordinary activity row with an unparseable date.
+// Returns null if no such row is found (older files typed the legend as
+// one plain paragraph of text instead of individually colored cells,
+// which this can't machine-read).
+function findLegendMap(sheet: XLSX.WorkSheet, range: XLSX.Range): { map: Map<string, string>; rowIndex: number } | null {
   const searchEndRow = Math.min(range.e.r, range.s.r + 25)
 
   // Prefer scanning near an explicit "Color Guide" label if we can find
@@ -179,11 +202,24 @@ function findLegendMap(sheet: XLSX.WorkSheet, range: XLSX.Range): Map<string, st
     if (candidates.length >= 2 && distinctColors.size >= 2) {
       const map = new Map<string, string>()
       for (const { rgb, name } of candidates) map.set(rgb, name)
-      return map
+      return { map, rowIndex: r }
     }
   }
 
   return null
+}
+
+// A closest-color match under this RGB distance (out of a max of ~441) is
+// treated as a confident, silent auto-correction — e.g. a cell that's
+// clearly the same intended color with minor export/rounding drift. Above
+// it, the match is too much of a guess to apply silently, so the row gets
+// flagged in the conflicts step for the user to confirm or reassign.
+const CONFIDENT_MATCH_DISTANCE = 50
+
+type CategoryResolution = {
+  category: ImportCategoryName
+  exact: boolean
+  distance: number // 0 for exact matches
 }
 
 // Resolves a cell's category using the file's own legend when available,
@@ -191,17 +227,48 @@ function findLegendMap(sheet: XLSX.WorkSheet, range: XLSX.Range): Map<string, st
 // RGB distance (handles stray/off-guide colors like a manually-tweaked
 // cell that's close to, but not exactly, one of the legend's colors).
 // Only falls all the way back to 'National' when there's no fill at all.
-function resolveCategory(rgb6: string | null, legend: Map<string, string>): ImportCategoryName {
-  if (!rgb6) return 'National'
+function resolveCategory(rgb6: string | null, legend: Map<string, string>): CategoryResolution {
+  if (!rgb6) return { category: 'National', exact: true, distance: 0 }
   const exact = legend.get(rgb6)
-  if (exact) return exact
+  if (exact) return { category: exact, exact: true, distance: 0 }
 
   let best: { name: string; dist: number } | null = null
   for (const [legendRgb, name] of legend) {
     const dist = rgbDistance(rgb6, legendRgb)
     if (!best || dist < best.dist) best = { name, dist }
   }
-  return best ? best.name : 'National'
+  if (!best) return { category: 'National', exact: true, distance: 0 }
+  return { category: best.name, exact: false, distance: best.dist }
+}
+
+// Levenshtein edit distance, used only for detecting "probably the same
+// category, slightly different spelling" (e.g. "and" vs "&") — not for
+// the exact/case/whitespace matching that normalizeCategoryKey covers.
+function levenshtein(a: string, b: string): number {
+  const dp: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0))
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1])
+    }
+  }
+  return dp[a.length][b.length]
+}
+
+// Returns a 0–1 similarity score between two category names (1 = identical
+// once case/whitespace-normalized, 0 = nothing alike). Used to surface
+// "possible duplicate" conflicts — e.g. a file's "Pledges and Special
+// Offering" vs an existing "Pledges & Special Offerings" — without
+// silently merging them and without treating every genuinely-new category
+// name as a false alarm.
+export function categoryNameSimilarity(a: string, b: string): number {
+  const na = normalizeCategoryKey(a)
+  const nb = normalizeCategoryKey(b)
+  if (na === nb) return 1
+  const dist = levenshtein(na, nb)
+  const maxLen = Math.max(na.length, nb.length) || 1
+  return 1 - dist / maxLen
 }
 
 function pad2(n: number): string {
@@ -217,6 +284,35 @@ function toKey(year: number, month: number, day: number): string {
 // without timezone drift.
 function excelDateParts(value: Date): { year: number; month: number; day: number } {
   return { year: value.getFullYear(), month: value.getMonth() + 1, day: value.getDate() }
+}
+
+const MONTH_NAME_TO_NUMBER: Record<string, number> = {
+  january: 1, jan: 1,
+  february: 2, feb: 2,
+  march: 3, mar: 3,
+  april: 4, apr: 4,
+  may: 5,
+  june: 6, jun: 6,
+  july: 7, jul: 7,
+  august: 8, aug: 8,
+  september: 9, sep: 9, sept: 9,
+  october: 10, oct: 10,
+  november: 11, nov: 11,
+  december: 12, dec: 12,
+}
+
+// Some templates use an actual Excel date for month-divider rows (older
+// template); others just type the month as plain text, e.g. "JUNE 2026"
+// (newer template — the '2026-2027' file has none of these as real
+// dates at all). Matches "<month name> <4-digit year>" exactly, so it
+// doesn't misfire on other header/footer text elsewhere on the sheet
+// (multi-word titles, "2026-2027" ranges, budget lines, etc.).
+function parseMonthYearText(raw: string): { year: number; month: number } | null {
+  const match = raw.trim().match(/^([A-Za-z]+)\.?\s+(\d{4})$/)
+  if (!match) return null
+  const month = MONTH_NAME_TO_NUMBER[match[1].toLowerCase()]
+  if (!month) return null
+  return { year: Number(match[2]), month }
 }
 
 // Parses column A for a single row into one or more day numbers within the
@@ -312,6 +408,7 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
         events: [],
         issues: [{ sourceRow: 0, rawDateValue: '', title: '', reason: `Sheet "${sheetName}" not found in workbook.` }],
         categoryDefaults: {},
+        uncertainRows: [],
       }
     }
   } else {
@@ -321,6 +418,7 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
         events: [],
         issues: [{ sourceRow: 0, rawDateValue: '', title: '', reason: 'No usable sheet found in this file.' }],
         categoryDefaults: {},
+        uncertainRows: [],
       }
     }
     sheet = picked.sheet
@@ -330,16 +428,21 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
 
   // Prefer this file's own legend; fall back to the static table (already
   // normalized to 6-char RGB keys) for files without a colored legend row.
-  const legend = findLegendMap(sheet, range) ?? new Map(Object.entries(FALLBACK_FILL_TO_CATEGORY))
+  const legendResult = findLegendMap(sheet, range)
+  const legend = legendResult?.map ?? new Map(Object.entries(FALLBACK_FILL_TO_CATEGORY))
+  const legendRowIndex = legendResult?.rowIndex ?? null
   const categoryDefaults = buildCategoryDefaults(legend)
 
   const events: ParsedImportEvent[] = []
   const issues: ImportIssue[] = []
+  const uncertainRows: UncertainCategoryRow[] = []
 
   let currentMonth: number | null = null
   let currentYear: number | null = null
 
   for (let r = range.s.r; r <= range.e.r; r++) {
+    if (legendRowIndex !== null && r === legendRowIndex) continue // the legend row's own cells, not an activity
+
     const rowNum = r + 1 // 1-based for human-readable references
     const cellA = sheet[XLSX.utils.encode_cell({ r, c: 0 })]
     const cellB = sheet[XLSX.utils.encode_cell({ r, c: 1 })]
@@ -356,15 +459,25 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
       continue
     }
 
-    // Month-divider row: date in column A, nothing in column C.
-    if (!title && cellA?.v instanceof Date) {
-      const { year, month } = excelDateParts(cellA.v)
-      currentYear = year
-      currentMonth = month
-      continue
+    // Month-divider row: nothing in column C, and column A is either a
+    // real date (older template) or a plain "MONTH YEAR" text label
+    // (newer template, e.g. "JUNE 2026"). Anything else with an empty
+    // title — blank rows, footer/signature lines — is just skipped.
+    if (!title) {
+      if (cellA?.v instanceof Date) {
+        const { year, month } = excelDateParts(cellA.v)
+        currentYear = year
+        currentMonth = month
+        continue
+      }
+      const monthYear = parseMonthYearText(cellText(cellA))
+      if (monthYear) {
+        currentYear = monthYear.year
+        currentMonth = monthYear.month
+        continue
+      }
+      continue // blank/separator row
     }
-
-    if (!title) continue // blank/separator row
 
     const parsedDay = parseDayField(cellA?.v)
     const rawDateValue = cellA?.v instanceof Date ? cellA.v.toISOString() : String(cellA?.v ?? '')
@@ -379,11 +492,20 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
       continue
     }
 
-    const category = resolveCategory(getCellRgb6(cellC), legend)
+    const resolution = resolveCategory(getCellRgb6(cellC), legend)
     const time = cellText(cellB)
     const inCharge = cellText(cellD)
     const place = cellText(cellE)
     const budget = cellText(cellF)
+
+    if (!resolution.exact && resolution.distance > CONFIDENT_MATCH_DISTANCE) {
+      uncertainRows.push({
+        sourceRow: rowNum,
+        title,
+        guessedCategory: resolution.category,
+        distance: resolution.distance,
+      })
+    }
 
     let dateKeys: string[] = []
 
@@ -403,9 +525,20 @@ export function parseMinistryPlanWorkbook(arrayBuffer: ArrayBuffer, sheetName?: 
     }
 
     for (const date of dateKeys) {
-      events.push({ date, time, title, inCharge, place, budget, category, sourceRow: rowNum })
+      events.push({
+        date,
+        time,
+        title,
+        inCharge,
+        place,
+        budget,
+        category: resolution.category,
+        categoryExactMatch: resolution.exact,
+        categoryMatchDistance: resolution.distance,
+        sourceRow: rowNum,
+      })
     }
   }
 
-  return { events, issues, categoryDefaults }
+  return { events, issues, categoryDefaults, uncertainRows }
 }

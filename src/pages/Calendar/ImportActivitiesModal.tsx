@@ -3,6 +3,7 @@ import {
   collection,
   addDoc,
   doc,
+  updateDoc,
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -10,10 +11,12 @@ import { db } from '../../firebase/firebase'
 import {
   parseMinistryPlanWorkbook,
   normalizeCategoryKey,
+  categoryNameSimilarity,
   type ParsedImportEvent,
   type ImportIssue,
   type ImportCategoryName,
   type CategoryDefaults,
+  type UncertainCategoryRow,
 } from './importExcel'
 import { getIconColor } from './categoryIcons'
 
@@ -39,7 +42,32 @@ type RowState = ParsedImportEvent & {
   included: boolean
 }
 
-type Step = 'pick' | 'preview' | 'saving' | 'done' | 'error'
+// A category name in this file that doesn't exactly match an existing one
+// but is close enough in spelling that it might be the same category,
+// typed slightly differently (e.g. "and" vs "&"). Purely a suggestion —
+// the user decides whether to merge or keep it separate.
+type NameConflict = {
+  fileCategory: string
+  suggestedExisting: Category
+  similarity: number
+}
+type NameConflictResolution = 'use_existing' | 'create_new'
+
+// An existing category whose stored color doesn't match the color this
+// file's own legend assigns to the same category name.
+type ColorConflict = {
+  category: string
+  existingColor: string
+  fileColor: string
+}
+type ColorConflictResolution = 'keep' | 'update'
+
+type Step = 'pick' | 'conflicts' | 'preview' | 'saving' | 'done' | 'error'
+
+// A closest-color guess is only trusted silently up to this point (see
+// CONFIDENT_MATCH_DISTANCE in importExcel.ts) — this is just the display
+// threshold check, kept in sync conceptually, not a separate tunable.
+const NAME_SIMILARITY_CONFLICT_THRESHOLD = 0.6
 
 export default function ImportActivitiesModal({ categories, onClose, onImported }: Props) {
   const [step, setStep] = useState<Step>('pick')
@@ -58,6 +86,16 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
   const [savedCount, setSavedCount] = useState(0)
   const [saveProgress, setSaveProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 })
 
+  // Conflicts detected right after parsing, and the user's decision for
+  // each (pre-filled with a safe default so "Continue" always works even
+  // if the user doesn't touch anything).
+  const [nameConflicts, setNameConflicts] = useState<NameConflict[]>([])
+  const [nameConflictResolutions, setNameConflictResolutions] = useState<Record<string, NameConflictResolution>>({})
+  const [colorConflicts, setColorConflicts] = useState<ColorConflict[]>([])
+  const [colorConflictResolutions, setColorConflictResolutions] = useState<Record<string, ColorConflictResolution>>({})
+  const [uncertainRows, setUncertainRows] = useState<UncertainCategoryRow[]>([])
+  const [uncertainRowResolutions, setUncertainRowResolutions] = useState<Record<number, string>>({})
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -68,7 +106,12 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
     reader.onload = () => {
       try {
         const buffer = reader.result as ArrayBuffer
-        const { events, issues: parsedIssues, categoryDefaults: parsedDefaults } = parseMinistryPlanWorkbook(buffer)
+        const {
+          events,
+          issues: parsedIssues,
+          categoryDefaults: parsedDefaults,
+          uncertainRows: parsedUncertain,
+        } = parseMinistryPlanWorkbook(buffer)
         if (events.length === 0 && parsedIssues.length === 0) {
           setParseError('No activities were found in this file. Make sure it has a "2025-2026" sheet in the expected format.')
           return
@@ -77,7 +120,50 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
         setIssues(parsedIssues)
         setCategoryDefaults(parsedDefaults)
         setIssueDates({})
-        setStep('preview')
+        setUncertainRows(parsedUncertain)
+        setUncertainRowResolutions(Object.fromEntries(parsedUncertain.map((u) => [u.sourceRow, u.guessedCategory])))
+
+        const byNormalized = new Map(categories.map((c) => [normalizeCategoryKey(c.name), c]))
+        const usedNames = Array.from(new Set(events.map((e) => e.category)))
+        const brandNewNames = usedNames.filter((n) => !byNormalized.has(normalizeCategoryKey(n)))
+
+        // A brand-new category name might just be a slightly different
+        // spelling of one that already exists (e.g. "and" vs "&") — flag
+        // those for review instead of silently creating a near-duplicate.
+        const detectedNameConflicts: NameConflict[] = []
+        for (const name of brandNewNames) {
+          let best: { cat: Category; sim: number } | null = null
+          for (const c of categories) {
+            const sim = categoryNameSimilarity(name, c.name)
+            if (!best || sim > best.sim) best = { cat: c, sim }
+          }
+          if (best && best.sim >= NAME_SIMILARITY_CONFLICT_THRESHOLD) {
+            detectedNameConflicts.push({ fileCategory: name, suggestedExisting: best.cat, similarity: best.sim })
+          }
+        }
+
+        // For names that DO match an existing category, check whether
+        // this file's own legend disagrees with the color already saved
+        // for that category.
+        const detectedColorConflicts: ColorConflict[] = []
+        for (const name of usedNames) {
+          const existing = byNormalized.get(normalizeCategoryKey(name))
+          if (!existing) continue
+          const fileColor = parsedDefaults[name]?.color
+          if (!fileColor || !existing.color) continue
+          if (fileColor.toLowerCase() !== existing.color.toLowerCase()) {
+            detectedColorConflicts.push({ category: name, existingColor: existing.color, fileColor })
+          }
+        }
+
+        setNameConflicts(detectedNameConflicts)
+        setNameConflictResolutions(Object.fromEntries(detectedNameConflicts.map((c) => [c.fileCategory, 'create_new'])))
+        setColorConflicts(detectedColorConflicts)
+        setColorConflictResolutions(Object.fromEntries(detectedColorConflicts.map((c) => [c.category, 'keep'])))
+
+        const hasConflicts =
+          detectedNameConflicts.length > 0 || detectedColorConflicts.length > 0 || parsedUncertain.length > 0
+        setStep(hasConflicts ? 'conflicts' : 'preview')
       } catch (err) {
         setParseError('Could not read this file. Make sure it is a valid .xlsx file exported from the ministry plan template.')
       }
@@ -86,6 +172,31 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
       setParseError('Could not read this file. Please try again.')
     }
     reader.readAsArrayBuffer(file)
+  }
+
+  function handleContinueFromConflicts() {
+    // Bakes the user's conflict decisions into the row data before moving
+    // on: name-conflict rows get remapped to the existing category's
+    // canonical spelling if merged, and uncertain rows get whatever
+    // category the user confirmed or reassigned.
+    setRows((prev) =>
+      prev.map((r) => {
+        let category = r.category
+
+        const nameConflict = nameConflicts.find((c) => c.fileCategory === r.category)
+        if (nameConflict && nameConflictResolutions[nameConflict.fileCategory] === 'use_existing') {
+          category = nameConflict.suggestedExisting.name
+        }
+
+        const isUncertainRow = uncertainRows.some((u) => u.sourceRow === r.sourceRow)
+        if (isUncertainRow && uncertainRowResolutions[r.sourceRow]) {
+          category = uncertainRowResolutions[r.sourceRow]
+        }
+
+        return category === r.category ? r : { ...r, category }
+      }),
+    )
+    setStep('preview')
   }
 
   function toggleRow(index: number) {
@@ -109,6 +220,11 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
   const newCategoryNames = Array.from(usedCategoryNames).filter(
     (name) => !categoryByNormalizedName.has(normalizeCategoryKey(name)),
   )
+  // Every category name any row in this file could end up under, for the
+  // "reassign this row" dropdown in the conflicts step.
+  const allCategoryOptions = Array.from(
+    new Set([...categories.map((c) => c.name), ...Object.keys(categoryDefaults)]),
+  ).sort((a, b) => a.localeCompare(b))
 
   async function ensureCategoriesExist(): Promise<Map<string, string>> {
     // Returns a map of category name (as it appears on the parsed rows)
@@ -119,7 +235,15 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
     const idByName = new Map<string, string>()
     for (const name of usedCategoryNames) {
       const existing = categoryByNormalizedName.get(normalizeCategoryKey(name))
-      if (existing) idByName.set(name, existing.id)
+      if (!existing) continue
+      idByName.set(name, existing.id)
+
+      // If the user confirmed updating this category's color to match
+      // what this file's legend shows, apply it now.
+      const colorConflict = colorConflicts.find((c) => c.category === name)
+      if (colorConflict && colorConflictResolutions[colorConflict.category] === 'update') {
+        await updateDoc(doc(db, 'CATEGORIES', existing.id), { color: colorConflict.fileColor })
+      }
     }
 
     for (const name of newCategoryNames) {
@@ -243,6 +367,146 @@ export default function ImportActivitiesModal({ categories, onClose, onImported 
             </label>
             {parseError && <p className="calendar-field-error">{parseError}</p>}
           </div>
+        )}
+
+        {step === 'conflicts' && (
+          <>
+            <div className="calendar-modal-body calendar-import-preview">
+              <p className="calendar-import-hint">
+                A few things in this file need a quick decision before importing. Sensible defaults are already
+                selected — change any of them if needed, then continue.
+              </p>
+
+              {nameConflicts.length > 0 && (
+                <div className="calendar-import-issues">
+                  <h3 className="calendar-import-issues-title">Possible duplicate categories ({nameConflicts.length})</h3>
+                  <p className="calendar-import-hint">
+                    These category names from the file don't exactly match an existing one, but look similar.
+                  </p>
+                  <div className="calendar-conflict-list">
+                    {nameConflicts.map((c) => (
+                      <div key={c.fileCategory} className="calendar-conflict-card">
+                        <p className="calendar-conflict-card-title">
+                          "{c.fileCategory}" (from file) vs existing "{c.suggestedExisting.name}"
+                        </p>
+                        <div className="calendar-conflict-options">
+                          <label className="calendar-conflict-option">
+                            <input
+                              type="radio"
+                              name={`name-conflict-${c.fileCategory}`}
+                              checked={nameConflictResolutions[c.fileCategory] !== 'use_existing'}
+                              onChange={() =>
+                                setNameConflictResolutions((prev) => ({ ...prev, [c.fileCategory]: 'create_new' }))
+                              }
+                            />
+                            Create as new category
+                          </label>
+                          <label className="calendar-conflict-option">
+                            <input
+                              type="radio"
+                              name={`name-conflict-${c.fileCategory}`}
+                              checked={nameConflictResolutions[c.fileCategory] === 'use_existing'}
+                              onChange={() =>
+                                setNameConflictResolutions((prev) => ({ ...prev, [c.fileCategory]: 'use_existing' }))
+                              }
+                            />
+                            Use existing "{c.suggestedExisting.name}"
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {colorConflicts.length > 0 && (
+                <div className="calendar-import-issues">
+                  <h3 className="calendar-import-issues-title">Color differs from existing ({colorConflicts.length})</h3>
+                  <p className="calendar-import-hint">
+                    This file's own color guide shows a different color for these than what's already saved.
+                  </p>
+                  <div className="calendar-conflict-list">
+                    {colorConflicts.map((c) => (
+                      <div key={c.category} className="calendar-conflict-card">
+                        <p className="calendar-conflict-card-title">"{c.category}"</p>
+                        <div className="calendar-conflict-color-compare">
+                          <span
+                            className="calendar-conflict-swatch"
+                            style={{ background: c.existingColor } as CSSProperties}
+                          />
+                          <span>existing</span>
+                          <span aria-hidden="true">vs</span>
+                          <span
+                            className="calendar-conflict-swatch"
+                            style={{ background: c.fileColor } as CSSProperties}
+                          />
+                          <span>this file</span>
+                        </div>
+                        <div className="calendar-conflict-options">
+                          <label className="calendar-conflict-option">
+                            <input
+                              type="radio"
+                              name={`color-conflict-${c.category}`}
+                              checked={colorConflictResolutions[c.category] !== 'update'}
+                              onChange={() => setColorConflictResolutions((prev) => ({ ...prev, [c.category]: 'keep' }))}
+                            />
+                            Keep existing color
+                          </label>
+                          <label className="calendar-conflict-option">
+                            <input
+                              type="radio"
+                              name={`color-conflict-${c.category}`}
+                              checked={colorConflictResolutions[c.category] === 'update'}
+                              onChange={() => setColorConflictResolutions((prev) => ({ ...prev, [c.category]: 'update' }))}
+                            />
+                            Update to this file's color
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {uncertainRows.length > 0 && (
+                <div className="calendar-import-issues">
+                  <h3 className="calendar-import-issues-title">Uncertain category match ({uncertainRows.length})</h3>
+                  <p className="calendar-import-hint">
+                    This row's highlight color wasn't a confident match for any category. Confirm or reassign it.
+                  </p>
+                  <div className="calendar-conflict-list">
+                    {uncertainRows.map((u) => (
+                      <div key={u.sourceRow} className="calendar-conflict-card calendar-conflict-card-row">
+                        <span className="calendar-conflict-card-title">{u.title}</span>
+                        <select
+                          className="calendar-input"
+                          value={uncertainRowResolutions[u.sourceRow] ?? u.guessedCategory}
+                          onChange={(e) =>
+                            setUncertainRowResolutions((prev) => ({ ...prev, [u.sourceRow]: e.target.value }))
+                          }
+                        >
+                          {allCategoryOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="calendar-modal-footer">
+              <button type="button" className="calendar-btn calendar-btn-ghost" onClick={() => setStep('pick')}>
+                Back
+              </button>
+              <button type="button" className="calendar-btn calendar-btn-primary" onClick={handleContinueFromConflicts}>
+                Continue
+              </button>
+            </div>
+          </>
         )}
 
         {step === 'preview' && (
