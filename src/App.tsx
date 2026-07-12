@@ -16,6 +16,7 @@ import SundaySchool from './pages/SundaySchool/SundaySchool'
 import SundaySchoolReport from './pages/SundaySchool/SundaySchoolReport'
 import SundaySchoolLedger from './pages/SundaySchool/SundaySchoolLedger'
 import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
+import SundaySchoolAttendance from './pages/SundaySchool/SundaySchoolAttendance'
 
 function App() {
 useAuthSync();
@@ -31,6 +32,7 @@ useAuthSync();
       <Route path="/pledges/report" element={<PledgesReport />} />
       <Route path="visitation/visitation" element={<Visitation/>} />
       <Route path='SundaySchool/SundaySchoolLedger' element ={<SundaySchoolLedger/>} />
+      <Route path='SundaySchool/SundaySchoolAttendance' element ={<SundaySchoolAttendance/>} />
       <Route path='SundaySchool/SundaySchool' element ={<SundaySchool/>} />
       <Route path='SundaySchool/report' element ={<SundaySchoolReport/>} />
       <Route path='SundaySchool/SundaySchoolLineUp' element ={<SundaySchoolLineUp/>} />
