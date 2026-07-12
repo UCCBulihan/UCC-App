@@ -18,6 +18,7 @@ import SundaySchoolReport from './pages/SundaySchool/SundaySchoolReport'
 import SundaySchoolLedger from './pages/SundaySchool/SundaySchoolLedger'
 import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
 import SundaySchoolAttendance from './pages/SundaySchool/SundaySchoolAttendance'
+import Ongoing from './pages/Defaults/Ongoing'
 
 function App() {
 useAuthSync();
@@ -41,6 +42,9 @@ useAuthSync();
       <Route path="/ledger" element={<Ledger />} />
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />
+
+      <Route path="/Defaults/Ongoing" element={<Ongoing />} />
+
     </Routes>
    </>
   )
