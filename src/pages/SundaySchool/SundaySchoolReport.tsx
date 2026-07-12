@@ -6,7 +6,7 @@ import './sundaySchool.css'
 import './reports.css'
 
 const COLLECTION_NAME = 'SUNDAYSCHOOL_INCOME'
-const LEDGER_COLLECTION_NAME = 'SundaySchoolLedger'
+const LEDGER_COLLECTION_NAME = 'SUNDAYSCHOOLLEDGER'
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
