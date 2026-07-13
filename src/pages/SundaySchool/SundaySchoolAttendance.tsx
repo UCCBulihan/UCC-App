@@ -93,17 +93,19 @@ export default function SundaySchoolAttendance() {
   const toggleAttendance = (memberId: string, day: number) => {
 
     setAttendance(prev => {
+      const monthData = prev[monthKey] ?? {};
+      const memberData = monthData[memberId] ?? {};
 
-      const copy = { ...prev };
-
-      if (!copy[monthKey]) copy[monthKey] = {};
-      if (!copy[monthKey][memberId]) copy[monthKey][memberId] = {};
-
-      copy[monthKey][memberId][day] =
-        !copy[monthKey][memberId][day];
-
-      return { ...copy };
-
+      return {
+        ...prev,
+        [monthKey]: {
+          ...monthData,
+          [memberId]: {
+            ...memberData,
+            [day]: !memberData[day],
+          },
+        },
+      };
     });
 
   };
@@ -242,7 +244,7 @@ export default function SundaySchoolAttendance() {
                                 toggleAttendance(member.id, day)
                               }
                             >
-                              ✓
+                              {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
                             </button>
 
                           </td>
