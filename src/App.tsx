@@ -39,7 +39,7 @@ useAuthSync();
       <Route path='SundaySchool/SundaySchool' element ={<SundaySchool/>} />
       <Route path='SundaySchool/report' element ={<SundaySchoolReport/>} />
       <Route path='SundaySchool/SundaySchoolLineUp' element ={<SundaySchoolLineUp/>} />
-      <Route path='/Profile' element={<Profile/>} />
+      <Route path='/Profile/:id' element={<Profile/>} />
       <Route path="/ledger" element={<Ledger />} />
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />

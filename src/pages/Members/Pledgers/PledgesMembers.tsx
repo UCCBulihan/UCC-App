@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import './pledgesmembers.css';
 import './pagination.css';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
@@ -9,6 +10,7 @@ import Toast from './components/Toast';
 import { useMembers } from './useMembers';
 
 export default function Members() {
+  const navigate = useNavigate();
   const {
     currentUser, members, filtered, paginated, search, filter,
     modalOpen, modalMode, form, formError, toast, loading,
@@ -47,7 +49,7 @@ export default function Members() {
             onTogglePledger={togglePledger}
             onArchive={archiveMember}
             onEdit={openEditModal}
-            onViewProfile={(member) => console.log('View profile:', member)}
+            onViewProfile={(member) => navigate(`/Profile/${member.id}`)}
             pageSize={pageSize}
             currentPage={currentPage}
             totalPages={totalPages}

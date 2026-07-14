@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from '../Pledgers/MembersTable/MembersTable';
 import MemberModal from '../Pledgers/MemberModal/MemberModal';
@@ -7,6 +8,7 @@ import Toast from '../Pledgers/components/Toast';
 import { useMembers } from '../Pledgers/useMembers';
 
 export default function AllMembers() {
+  const navigate = useNavigate();
   const {
     currentUser, members, filtered, paginated, search, filter,
     modalOpen, modalMode, form, formError, toast, loading,
@@ -44,7 +46,7 @@ export default function AllMembers() {
             loading={loading}
             onArchive={archiveMember}
             onEdit={openEditModal}
-            onViewProfile={(member) => console.log('View profile:', member)}
+            onViewProfile={(member) => navigate(`/Profile/${member.id}`)}
             pageSize={pageSize}
             currentPage={currentPage}
             totalPages={totalPages}
