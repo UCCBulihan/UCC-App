@@ -467,6 +467,7 @@ export default function Profile() {
                   <div className="input-wrap">
                     <select id="membershipStatus" value={form.membershipStatus} onChange={handleChange}>
                       <option value="">Select…</option>
+                      <option value="Council">Council</option>
                       <option value="Visitor">Visitor</option>
                       <option value="Regular Attendee">Regular Attendee</option>
                       <option value="Member">Member</option>
