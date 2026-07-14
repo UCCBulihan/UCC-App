@@ -26,7 +26,7 @@ function formatDate() {
 // ── Hook ─────────────────────────────────────────────────────
 export function useMembers() {
   // ── From global store (shared/cached) ──
-  const { members, loading, fetchIfNeeded, addMember: storeAdd, updateMember, removeMember } = useMembersStore();
+  const { members, loading, fetchIfNeeded, addMember: storeAdd, updateMember, removeMember, moveToArchived } = useMembersStore();
 
   // ── Local UI state (not shared, per-page) ──
   const [currentUser, setCurrentUser] = useState('');
@@ -173,6 +173,7 @@ async function archiveMember(id: string) {
         archivedDate: formatDate(),
       };
       await updateDoc(doc(db, 'MEMBERS', id), changes);
+       moveToArchived(id, changes);
       removeMember(id);
       showToast('Member archived.');
     } catch (err: any) {

@@ -62,6 +62,7 @@ interface MembersStore {
 
   fetchArchivedIfNeeded: () => Promise<void>;
   restoreMember: (id: string) => void;
+  moveToArchived: (id: string, changes: Partial<Member>) => void; 
 }
 
 // ── Helper ───────────────────────────────────────────────────
@@ -161,4 +162,19 @@ export const useMembersStore = create<MembersStore>((set, get) => ({
         members: [...state.members, { ...rest, isArchived: false }],
       };
     }),
+
+    moveToArchived: (id, changes) =>
+    set(state => {
+      const target = state.members.find(m => m.id === id);
+      if (!target) {
+        // Fallback: wala sa 'members' cache, alisin na lang kung meron
+        return { members: state.members.filter(m => m.id !== id) };
+      }
+      const archived = { ...target, ...changes, isArchived: true };
+      return {
+        members: state.members.filter(m => m.id !== id),
+        archivedMembers: [...state.archivedMembers, archived],
+      };
+    }),
+
 }));
