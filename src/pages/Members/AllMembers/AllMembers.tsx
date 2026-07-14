@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from '../Pledgers/MembersTable/MembersTable';
-import MemberModal from '../Pledgers/MemberModal/MemberModal';
 import PageHeader from '../Pledgers/components/PageHeader';
 import MembersToolbar from '../Pledgers/components/MembersToolbar';
 import Toast from '../Pledgers/components/Toast';
@@ -10,11 +9,9 @@ import { useMembers } from '../Pledgers/useMembers';
 export default function AllMembers() {
   const navigate = useNavigate();
   const {
-    currentUser, members, filtered, paginated, search, filter,
-    modalOpen, modalMode, form, formError, toast, loading,
+    members, filtered, paginated, search, filter,
+    toast, loading,
     setSearch, setFilter,
-    openModal, openEditModal, closeModal,
-    handleFormChange, addMember, editMember,
     archiveMember,
     pageSize, setPageSize,
     currentPage, setCurrentPage,
@@ -29,7 +26,7 @@ export default function AllMembers() {
 
           <PageHeader
             memberCount={members.length}
-            onAddMember={openModal}
+            onAddMember={() => navigate('/Profile/new')}
           />
 
           <MembersToolbar
@@ -45,7 +42,7 @@ export default function AllMembers() {
             paginated={paginated}
             loading={loading}
             onArchive={archiveMember}
-            onEdit={openEditModal}
+            onEdit={(member) => navigate(`/Profile/${member.id}`)}
             onViewProfile={(member) => navigate(`/Profile/${member.id}`)}
             pageSize={pageSize}
             currentPage={currentPage}
@@ -55,19 +52,6 @@ export default function AllMembers() {
           />
 
         </div>
-
-        <MemberModal
-          isOpen={modalOpen}
-          mode={modalMode}
-          form={form}
-          formError={formError}
-          currentUser={currentUser}
-          onClose={closeModal}
-          onFormChange={handleFormChange}
-          // showPledgerToggle={modalMode !== 'edit'}
-          showPledgerToggle={false}  
-          onSubmit={modalMode === 'edit' ? editMember : addMember}
-        />
 
         <Toast message={toast} />
 

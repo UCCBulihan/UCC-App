@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from '../../firebase/firebase';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import { useMembersStore } from '../Members/useMembersStore';
-import type { Member } from '../Members/useMembersStore';
 
 function initials(firstName: string, lastName: string) {
   return (firstName?.[0] || '') + (lastName?.[0] || '');
@@ -21,7 +21,21 @@ function computeAge(dateOfBirth?: string) {
   return age >= 0 ? age : '';
 }
 
-type FormState = Omit<Member, 'id' | 'userId' | 'isPledger' | 'addedBy' | 'dateAdded' | 'isArchived'>;
+function formatDate() {
+  return new Date().toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+interface FormState {
+  firstName: string; middleName: string; lastName: string;
+  nickname: string; gender: string; dateOfBirth: string; civilStatus: string;
+  motherName: string; fatherName: string;
+  numberOfSiblings: string; siblingNames: string;
+  phoneNumber: string; emailAddress: string; address: string;
+  emergencyContactName: string; emergencyContactNumber: string;
+  dateRegistered: string; membershipStatus: string; ministry: string; remarks: string;
+}
 
 const emptyForm: FormState = {
   firstName: '', middleName: '', lastName: '',
@@ -36,18 +50,28 @@ const emptyForm: FormState = {
 export default function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { members, loading, fetchIfNeeded, updateMember } = useMembersStore();
+  const { members, loading, fetchIfNeeded, updateMember, addMember: storeAdd } = useMembersStore();
 
+  const isAddMode = id === 'new';
+
+  const [currentUser, setCurrentUser] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => { fetchIfNeeded(); }, [fetchIfNeeded]);
 
-  const member = members.find(m => m.id === id);
+  useEffect(() => {
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, user => {
+      setCurrentUser(user?.displayName || user?.email || 'Unknown');
+    });
+    return () => unsub();
+  }, []);
 
-  // Sync form once member data is available
+  const member = isAddMode ? undefined : members.find(m => m.id === id);
+
+  // Sync form once existing member data is available (edit mode only)
   useEffect(() => {
     if (member) {
       setForm({
@@ -60,7 +84,7 @@ export default function Profile() {
         civilStatus: member.civilStatus || '',
         motherName: member.motherName || '',
         fatherName: member.fatherName || '',
-        numberOfSiblings: member.numberOfSiblings ?? '',
+        numberOfSiblings: String(member.numberOfSiblings ?? ''),
         siblingNames: member.siblingNames || '',
         phoneNumber: member.phoneNumber || '',
         emailAddress: member.emailAddress || '',
@@ -78,35 +102,53 @@ export default function Profile() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { id: fieldId, value } = e.target;
     setForm(prev => ({ ...prev, [fieldId]: value }));
-    setSaved(false);
   }
 
   async function handleSave() {
-    if (!id) return;
     if (!form.firstName.trim() || !form.lastName.trim()) {
       setError('First Name and Last Name are required.');
       return;
     }
     setError('');
     setSaving(true);
+
+    const changes = {
+      ...form,
+      firstName: form.firstName.trim(),
+      middleName: form.middleName.trim(),
+      lastName: form.lastName.trim(),
+    };
+
     try {
-      const changes = {
-        ...form,
-        firstName: form.firstName.trim(),
-        middleName: form.middleName.trim(),
-        lastName: form.lastName.trim(),
-      };
-      await updateDoc(doc(db, 'MEMBERS', id), changes);
-      updateMember(id, changes);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      if (isAddMode) {
+        const nextId = members.length > 0
+          ? Math.max(...members.map(m => m.userId)) + 1
+          : 1;
+        const newMember = {
+          ...changes,
+          userId: nextId,
+          isPledger: false,
+          addedBy: currentUser,
+          dateAdded: formatDate(),
+          isArchived: false,
+        };
+        const docRef = await addDoc(collection(db, 'MEMBERS'), newMember);
+        storeAdd({ id: docRef.id, ...newMember });
+      } else {
+        if (!id) return;
+        await updateDoc(doc(db, 'MEMBERS', id), changes);
+        updateMember(id, changes);
+      }
+      navigate('/AllMembers');
     } catch (err: any) {
       console.error('Save error:', err?.message);
-      setError('Failed to save changes. Try again.');
+      setError(isAddMode ? 'Failed to add member. Try again.' : 'Failed to save changes. Try again.');
     } finally {
       setSaving(false);
     }
   }
+
+  const notFound = !isAddMode && !loading && !member;
 
   return (
     <div className="app-layout">
@@ -119,9 +161,9 @@ export default function Profile() {
             Back
           </button>
 
-          {loading ? (
+          {!isAddMode && loading ? (
             <p>Loading profile…</p>
-          ) : !member ? (
+          ) : notFound ? (
             <div className="profile-empty">
               <i className="fa-regular fa-circle-question" aria-hidden="true" />
               <p>Member not found.</p>
@@ -131,11 +173,15 @@ export default function Profile() {
 
               <div className="profile-header">
                 <div className="profile-avatar">
-                  {initials(form.firstName, form.lastName)}
+                  {isAddMode
+                    ? <i className="fa-solid fa-user-plus" aria-hidden="true" />
+                    : initials(form.firstName, form.lastName)}
                 </div>
                 <div>
                   <h1>
-                    {form.firstName}{form.middleName ? ` ${form.middleName}` : ''} {form.lastName}
+                    {isAddMode
+                      ? 'Add Member'
+                      : `${form.firstName}${form.middleName ? ` ${form.middleName}` : ''} ${form.lastName}`}
                   </h1>
                 </div>
               </div>
@@ -153,13 +199,13 @@ export default function Profile() {
                 <div className="field">
                   <label htmlFor="firstName">First Name <span className="req">*</span></label>
                   <div className="input-wrap">
-                    <input type="text" id="firstName" value={form.firstName} onChange={handleChange} />
+                    <input type="text" id="firstName" placeholder="e.g. John" value={form.firstName} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="field">
                   <label htmlFor="middleName">Middle Name</label>
                   <div className="input-wrap">
-                    <input type="text" id="middleName" value={form.middleName} onChange={handleChange} />
+                    <input type="text" id="middleName" placeholder="e.g. Joe" value={form.middleName} onChange={handleChange} />
                   </div>
                 </div>
               </div>
@@ -167,7 +213,7 @@ export default function Profile() {
                 <div className="field">
                   <label htmlFor="lastName">Last Name <span className="req">*</span></label>
                   <div className="input-wrap">
-                    <input type="text" id="lastName" value={form.lastName} onChange={handleChange} />
+                    <input type="text" id="lastName" placeholder="e.g. Smith" value={form.lastName} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="field">
@@ -325,10 +371,26 @@ export default function Profile() {
                 </div>
               </div>
 
+              {/* ── Meta: Added By ── */}
+              <div className="field">
+                <label>{isAddMode ? 'Added By' : 'Modified By'}</label>
+                <div className="input-wrap" style={{ opacity: 0.7 }}>
+                  <input
+                    type="text"
+                    value={currentUser}
+                    readOnly
+                    style={{ cursor: 'default', backgroundColor: 'var(--input-disabled-bg, #f5f5f5)' }}
+                  />
+                </div>
+              </div>
+
               <div className="modal-actions">
+                <button className="btn-secondary" onClick={() => navigate(-1)}>
+                  <i className="fa-solid fa-xmark" aria-hidden="true" /> Cancel
+                </button>
                 <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                  <i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'}`} aria-hidden="true" />
-                  {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+                  <i className={`fa-solid ${saving ? 'fa-spinner fa-spin' : isAddMode ? 'fa-user-plus' : 'fa-floppy-disk'}`} aria-hidden="true" />
+                  {saving ? 'Saving…' : isAddMode ? 'Add Member' : 'Save Changes'}
                 </button>
               </div>
 

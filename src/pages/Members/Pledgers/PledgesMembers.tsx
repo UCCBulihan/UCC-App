@@ -3,7 +3,6 @@ import './pledgesmembers.css';
 import './pagination.css';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import MembersTable from './MembersTable/MembersTable';
-import MemberModal from './MemberModal/MemberModal';
 import PageHeader from './components/PageHeader';
 import MembersToolbar from './components/MembersToolbar';
 import Toast from './components/Toast';
@@ -12,11 +11,9 @@ import { useMembers } from './useMembers';
 export default function Members() {
   const navigate = useNavigate();
   const {
-    currentUser, members, filtered, paginated, search, filter,
-    modalOpen, modalMode, form, formError, toast, loading,
+    members, filtered, paginated, search, filter,
+    toast, loading,
     setSearch, setFilter,
-    openModal, openEditModal, closeModal,
-    handleFormChange, addMember, editMember,
     togglePledger, archiveMember,
     pageSize, setPageSize,
     currentPage, setCurrentPage,
@@ -31,7 +28,7 @@ export default function Members() {
 
           <PageHeader
             memberCount={members.length}
-            onAddMember={openModal}
+            onAddMember={() => navigate('/Profile/new')}
           />
 
           <MembersToolbar
@@ -48,7 +45,7 @@ export default function Members() {
             loading={loading}
             onTogglePledger={togglePledger}
             onArchive={archiveMember}
-            onEdit={openEditModal}
+            onEdit={(member) => navigate(`/Profile/${member.id}`)}
             onViewProfile={(member) => navigate(`/Profile/${member.id}`)}
             pageSize={pageSize}
             currentPage={currentPage}
@@ -58,18 +55,6 @@ export default function Members() {
           />
 
         </div>
-
-        <MemberModal
-          isOpen={modalOpen}
-          mode={modalMode}
-          form={form}
-          formError={formError}
-          currentUser={currentUser}
-          showPledgerToggle={true}
-          onClose={closeModal}
-          onFormChange={handleFormChange}
-          onSubmit={modalMode === 'edit' ? editMember : addMember}
-        />
 
         <Toast message={toast} />
 
