@@ -10,6 +10,10 @@ function initials(firstName: string, lastName: string) {
   return (firstName?.[0] || '') + (lastName?.[0] || '');
 }
 
+function fullName(m: { firstName: string; middleName?: string; lastName: string }) {
+  return `${m.firstName}${m.middleName ? ` ${m.middleName}` : ''} ${m.lastName}`.trim().replace(/\s+/g, ' ');
+}
+
 function computeAge(dateOfBirth?: string) {
   if (!dateOfBirth) return '';
   const dob = new Date(dateOfBirth);
@@ -59,6 +63,12 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // ── Autocomplete state (Mother/Father/Sibling suggestions from members) ──
+  const [motherOpen, setMotherOpen] = useState(false);
+  const [fatherOpen, setFatherOpen] = useState(false);
+  const [siblingOpen, setSiblingOpen] = useState(false);
+  const [siblingInput, setSiblingInput] = useState('');
+
   useEffect(() => { fetchIfNeeded(); }, [fetchIfNeeded]);
 
   useEffect(() => {
@@ -102,6 +112,33 @@ export default function Profile() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { id: fieldId, value } = e.target;
     setForm(prev => ({ ...prev, [fieldId]: value }));
+  }
+
+  // Suggest member names matching a query, excluding self and already-picked names
+  function suggestionsFor(query: string, exclude: string[] = []) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return members
+      .filter(m => m.id !== id)
+      .map(fullName)
+      .filter((name, idx, arr) => name && arr.indexOf(name) === idx)
+      .filter(name => name.toLowerCase().includes(q) && !exclude.includes(name))
+      .slice(0, 6);
+  }
+
+  const siblingList = form.siblingNames
+    ? form.siblingNames.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  function addSibling(name: string) {
+    if (!name.trim() || siblingList.includes(name.trim())) return;
+    setForm(prev => ({ ...prev, siblingNames: [...siblingList, name.trim()].join(', ') }));
+    setSiblingInput('');
+    setSiblingOpen(false);
+  }
+
+  function removeSibling(name: string) {
+    setForm(prev => ({ ...prev, siblingNames: siblingList.filter(n => n !== name).join(', ') }));
   }
 
   async function handleSave() {
@@ -269,17 +306,57 @@ export default function Profile() {
                 </div>
               </div>
               <div className="row-2">
-                <div className="field">
+                <div className="field autocomplete-field">
                   <label htmlFor="motherName">Mother's Name (Optional)</label>
                   <div className="input-wrap">
-                    <input type="text" id="motherName" value={form.motherName} onChange={handleChange} />
+                    <input
+                      type="text" id="motherName" autoComplete="off"
+                      value={form.motherName}
+                      onChange={handleChange}
+                      onFocus={() => setMotherOpen(true)}
+                      onBlur={() => setTimeout(() => setMotherOpen(false), 150)}
+                    />
                   </div>
+                  {motherOpen && suggestionsFor(form.motherName).length > 0 && (
+                    <div className="suggestion-dropdown">
+                      {suggestionsFor(form.motherName).map(name => (
+                        <div
+                          key={name}
+                          className="suggestion-item"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => { setForm(prev => ({ ...prev, motherName: name })); setMotherOpen(false); }}
+                        >
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="field">
+                <div className="field autocomplete-field">
                   <label htmlFor="fatherName">Father's Name (Optional)</label>
                   <div className="input-wrap">
-                    <input type="text" id="fatherName" value={form.fatherName} onChange={handleChange} />
+                    <input
+                      type="text" id="fatherName" autoComplete="off"
+                      value={form.fatherName}
+                      onChange={handleChange}
+                      onFocus={() => setFatherOpen(true)}
+                      onBlur={() => setTimeout(() => setFatherOpen(false), 150)}
+                    />
                   </div>
+                  {fatherOpen && suggestionsFor(form.fatherName).length > 0 && (
+                    <div className="suggestion-dropdown">
+                      {suggestionsFor(form.fatherName).map(name => (
+                        <div
+                          key={name}
+                          className="suggestion-item"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => { setForm(prev => ({ ...prev, fatherName: name })); setFatherOpen(false); }}
+                        >
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -292,11 +369,50 @@ export default function Profile() {
                     <input type="number" min="0" id="numberOfSiblings" value={form.numberOfSiblings} onChange={handleChange} />
                   </div>
                 </div>
-                <div className="field">
-                  <label htmlFor="siblingNames">Sibling Name(s) (Optional)</label>
+                <div className="field autocomplete-field">
+                  <label htmlFor="siblingInput">Sibling Name(s) (Optional)</label>
+                  {siblingList.length > 0 && (
+                    <div className="chip-list">
+                      {siblingList.map(name => (
+                        <span className="chip" key={name}>
+                          {name}
+                          <button type="button" onClick={() => removeSibling(name)} aria-label={`Remove ${name}`}>
+                            <i className="fa-solid fa-xmark" aria-hidden="true" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="input-wrap">
-                    <input type="text" id="siblingNames" placeholder="Separate with commas" value={form.siblingNames} onChange={handleChange} />
+                    <input
+                      type="text" id="siblingInput" autoComplete="off"
+                      placeholder="Type a name…"
+                      value={siblingInput}
+                      onChange={e => setSiblingInput(e.target.value)}
+                      onFocus={() => setSiblingOpen(true)}
+                      onBlur={() => setTimeout(() => setSiblingOpen(false), 150)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && siblingInput.trim()) {
+                          e.preventDefault();
+                          addSibling(siblingInput);
+                        }
+                      }}
+                    />
                   </div>
+                  {siblingOpen && suggestionsFor(siblingInput, siblingList).length > 0 && (
+                    <div className="suggestion-dropdown">
+                      {suggestionsFor(siblingInput, siblingList).map(name => (
+                        <div
+                          key={name}
+                          className="suggestion-item"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addSibling(name)}
+                        >
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
