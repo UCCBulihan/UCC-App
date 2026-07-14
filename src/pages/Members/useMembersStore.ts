@@ -15,6 +15,31 @@ export interface Member {
   modifiedBy?: string;
   modifiedDate?: string;
   isArchived: boolean;
+
+  // ── Basic Information ──
+  nickname?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  civilStatus?: string;
+  motherName?: string;
+  fatherName?: string;
+
+  // ── Family Information ──
+  numberOfSiblings?: number | string;
+  siblingNames?: string;
+
+  // ── Contact Information ──
+  phoneNumber?: string;
+  emailAddress?: string;
+  address?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+
+  // ── Church Information ──
+  dateRegistered?: string;
+  membershipStatus?: string;
+  ministry?: string;
+  remarks?: string;
 }
 
 interface MembersStore {
