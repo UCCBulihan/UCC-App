@@ -165,9 +165,14 @@ export function useMembers() {
     }
   }
 
-  async function archiveMember(id: string) {
+async function archiveMember(id: string) {
     try {
-      await updateDoc(doc(db, 'MEMBERS', id), { isArchived: true });
+      const changes = {
+        isArchived: true,
+        archivedBy: currentUser,
+        archivedDate: formatDate(),
+      };
+      await updateDoc(doc(db, 'MEMBERS', id), changes);
       removeMember(id);
       showToast('Member archived.');
     } catch (err: any) {
