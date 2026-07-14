@@ -18,6 +18,7 @@ interface Props {
   onTogglePledger?: (id: string, current: boolean) => void;
   onArchive: (id: string) => void;
   onEdit: (member: Member) => void;
+  onViewProfile?: (member: Member) => void;
   // pagination (all optional — omit to show all rows without controls)
   pageSize?: number;
   currentPage?: number;
@@ -32,7 +33,7 @@ function initials(m: Member) {
 
 export default function MembersTable({
   members = [], filtered = [], paginated, loading,
-  onTogglePledger, onArchive, onEdit,
+  onTogglePledger, onArchive, onEdit, onViewProfile,
   pageSize, currentPage, totalPages,
   onPageSizeChange, onPageChange,
 }: Props) {
@@ -78,6 +79,15 @@ export default function MembersTable({
                       <span className="member-name">
                         {m.firstName}{m.middleName ? ` ${m.middleName}` : ''} {m.lastName}
                       </span>
+                      {onViewProfile && (
+                        <button
+                          className="btn-view-profile"
+                          title="View Profile"
+                          onClick={() => onViewProfile(m)}
+                        >
+                          <i className="fa-regular fa-address-card" aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   </td>
                   {onTogglePledger && (

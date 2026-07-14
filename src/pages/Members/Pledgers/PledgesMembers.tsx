@@ -47,6 +47,7 @@ export default function Members() {
             onTogglePledger={togglePledger}
             onArchive={archiveMember}
             onEdit={openEditModal}
+            onViewProfile={(member) => console.log('View profile:', member)}
             pageSize={pageSize}
             currentPage={currentPage}
             totalPages={totalPages}

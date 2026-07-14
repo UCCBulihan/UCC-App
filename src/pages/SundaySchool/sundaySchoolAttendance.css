@@ -202,7 +202,6 @@
   tbody td{
     padding:10px 8px;
     border-bottom:1px solid var(--line);
-    text-align:center;
   }
   tbody td.member-col{
     text-align:left;
