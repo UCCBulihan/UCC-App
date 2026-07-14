@@ -11,15 +11,6 @@
     --danger:#B3463F;
     --radius:10px;
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
-    min-height:100vh;
-    padding:40px 20px 80px;
-  }
  
   .masthead{
     display:flex;

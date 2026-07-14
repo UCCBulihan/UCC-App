@@ -1,4 +1,3 @@
-
 import { Routes, Route } from 'react-router-dom'
 import Login from './pages/Auth/Login/Login'
 import Home from './pages/Home/Home/Home'
@@ -14,6 +13,7 @@ import Visitation from './pages/Visitation/Visitation'
 import Roles from './pages/Roles/Roles'
 import { useAuthSync } from './firebase/useAuthSync';
 import SundaySchool from './pages/SundaySchool/SundaySchool'
+import Profile from './pages/Profile/Profile'
 import SundaySchoolReport from './pages/SundaySchool/SundaySchoolReport'
 import SundaySchoolLedger from './pages/SundaySchool/SundaySchoolLedger'
 import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
@@ -39,6 +39,7 @@ useAuthSync();
       <Route path='SundaySchool/SundaySchool' element ={<SundaySchool/>} />
       <Route path='SundaySchool/report' element ={<SundaySchoolReport/>} />
       <Route path='SundaySchool/SundaySchoolLineUp' element ={<SundaySchoolLineUp/>} />
+      <Route path='/Profile' element={<Profile/>} />
       <Route path="/ledger" element={<Ledger />} />
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />

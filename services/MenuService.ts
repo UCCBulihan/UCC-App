@@ -62,7 +62,7 @@ export class MenuService implements IMenuService {
             ]
         },
 
-        { sortOrder: 60, name: 'Profile', iconClass: 'fa-solid fa-user', path: '/profile' },
+        // { sortOrder: 60, name: 'Profile', iconClass: 'fa-solid fa-user', path: '/profile' },
         { sortOrder: 70, name: 'Settings', iconClass: 'fa-solid fa-gear', path: '/settings', allowedRoles: [ADMIN_ROLE] }
     ];
 
