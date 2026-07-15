@@ -5,10 +5,10 @@
     --ink-soft:#5B6168;
     --ink-faint:#93989C;
     --line:#E4E7E5;
-    --accent:#146356;
-    --accent-dark:#0E4A40;
-    --accent-soft:#E5F1EE;
-    --danger:#B3463F;
+    --accent:#2563eb;
+    --accent-dark:#1d4ed8;
+    --accent-soft:#dbeafe;
+    --danger:#b3463f;
     --radius:10px;
   }
  
@@ -35,6 +35,25 @@
     color:var(--ink);
     letter-spacing:-0.01em;
   }
+
+  .btn-add-member{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    height:38px;
+    padding:0 16px;
+    border-radius:8px;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-family:'Inter';
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s;
+    white-space:nowrap;
+  }
+  .btn-add-member:hover{background:var(--accent-dark);}
  
   .card{
     background:var(--surface);

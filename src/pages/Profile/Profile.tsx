@@ -262,7 +262,7 @@ export default function Profile() {
               </div>
               <div className="row-2">
                 <div className="field">
-                  <label htmlFor="gender">Gender / Sex</label>
+                  <label htmlFor="gender">Gender</label>
                   <div className="input-wrap">
                     <select id="gender" value={form.gender} onChange={handleChange}>
                       <option value="">Select…</option>

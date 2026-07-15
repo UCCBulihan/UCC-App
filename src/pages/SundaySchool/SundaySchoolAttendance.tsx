@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase/firebase.ts"; // adjust path if needed
 import NavigationBar from "../Home/NavigationBar/NavigationBar";
@@ -21,8 +22,20 @@ interface Member {
   name: string;
 }
 
+function computeAge(dateOfBirth?: string): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
 export default function SundaySchoolAttendance() {
 
+  const navigate = useNavigate();
   const now = new Date();
 
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -73,7 +86,12 @@ export default function SundaySchoolAttendance() {
             .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
             .join(" ")
             .trim();
-          if (fullName) list.push({ id: docSnap.id, name: fullName });
+          const dateOfBirth = typeof data.dateOfBirth === "string" ? data.dateOfBirth : "";
+          const age = computeAge(dateOfBirth);
+          // Only include members with a known age below 13 (Sunday School range)
+          if (fullName && age !== null && age < 13) {
+            list.push({ id: docSnap.id, name: fullName });
+          }
         });
         list.sort((a, b) => a.name.localeCompare(b.name));
         if (!cancelled) setMembers(list);
@@ -125,6 +143,11 @@ export default function SundaySchoolAttendance() {
               <div className="eyebrow">Attendance Record</div>
               <h1>Attendance Tracker</h1>
             </div>
+
+            <button className="btn-add-member" onClick={() => navigate('/Profile/new')}>
+              <i className="fa-solid fa-user-plus" aria-hidden="true" />
+              Add Member
+            </button>
 
           </div>
 
