@@ -20,6 +20,7 @@ import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
 import SundaySchoolAttendance from './pages/SundaySchool/SundaySchoolAttendance'
 import Ongoing from './pages/Defaults/Ongoing'
 import MembersAttendance from './pages/Attendance/MembersAttendance'
+import AttendanceReport from './pages/Attendance/AttendanceReport'
 
 function App() {
 useAuthSync();
@@ -45,6 +46,7 @@ useAuthSync();
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />
       <Route path="/Attendance/MembersAttendance" element={<MembersAttendance />} />
+      <Route path="/Attendance/Report" element={<AttendanceReport />} />
       <Route path="/Defaults/Ongoing" element={<Ongoing />} />
 
     </Routes>

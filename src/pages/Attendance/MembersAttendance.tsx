@@ -23,17 +23,6 @@ interface Member {
   name: string;
 }
 
-function computeAge(dateOfBirth?: string): number | null {
-  if (!dateOfBirth) return null;
-  const dob = new Date(dateOfBirth);
-  if (isNaN(dob.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const m = today.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-  return age >= 0 ? age : null;
-}
-
 export default function MembersAttendance() {
 
   const navigate = useNavigate();
@@ -92,7 +81,7 @@ export default function MembersAttendance() {
          if (fullName) {
             list.push({ id: docSnap.id, name: fullName });
           }
-          
+
         });
         list.sort((a, b) => a.name.localeCompare(b.name));
         if (!cancelled) setMembers(list);
