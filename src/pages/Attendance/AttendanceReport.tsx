@@ -276,43 +276,43 @@ export default function AttendanceReport() {
           <div className="stats-grid">
 
             <div className="stat-card">
-              <div className="stat-icon">👥</div>
+              <div className="stat-icon icon-purple"><i className="fa-solid fa-users" aria-hidden="true"></i></div>
               <div className="stat-value">{totalMembers}</div>
               <div className="stat-label">Total Members</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">📈</div>
+              <div className="stat-icon icon-blue"><i className="fa-solid fa-arrow-trend-up" aria-hidden="true"></i></div>
               <div className="stat-value">{yearAttendanceRate}%</div>
               <div className="stat-label">Attendance Rate ({viewYear})</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">🔴</div>
+              <div className="stat-icon icon-red"><i className="fa-solid fa-circle" aria-hidden="true"></i></div>
               <div className="stat-value">{activeThisMonth ?? "—"}</div>
               <div className="stat-label">Active This Month</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">⚪</div>
+              <div className="stat-icon icon-gray"><i className="fa-regular fa-circle" aria-hidden="true"></i></div>
               <div className="stat-value">{inactiveThisMonth ?? "—"}</div>
               <div className="stat-label">Inactive This Month</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">✅</div>
+              <div className="stat-icon icon-green"><i className="fa-solid fa-circle-check" aria-hidden="true"></i></div>
               <div className="stat-value">{presentTodayCount ?? "—"}</div>
               <div className="stat-label">Present Today</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">⭐</div>
+              <div className="stat-icon icon-gold"><i className="fa-solid fa-star" aria-hidden="true"></i></div>
               <div className="stat-value">{perfectAttendanceCount}</div>
               <div className="stat-label">Perfect Attendance</div>
             </div>
 
             <div className="stat-card stat-card-warning">
-              <div className="stat-icon">📉</div>
+              <div className="stat-icon icon-warning"><i className="fa-solid fa-arrow-trend-down" aria-hidden="true"></i></div>
               <div className="stat-value">{needsFollowUpCount}</div>
               <div className="stat-label">Needs Follow-up ({FOLLOW_UP_THRESHOLD}+ absences)</div>
             </div>
@@ -322,7 +322,7 @@ export default function AttendanceReport() {
 
         {!isLoading && (
           <div className="card trend-card">
-            <div className="trend-title">📊 Monthly Attendance Trend — {viewYear}</div>
+            <div className="trend-title"><i className="fa-solid fa-chart-column" aria-hidden="true"></i> Monthly Attendance Trend — {viewYear}</div>
             <div className="trend-chart">
               {monthlyTrend.map(({ label, pct }) => (
                 <div className="trend-bar-col" key={label}>
@@ -434,8 +434,8 @@ export default function AttendanceReport() {
                       <td className="total-cell">{total}/{totalSundaysInYear}</td>
                       <td className={`pct-cell ${pctClass}`}>{percentage}%</td>
                       <td className="status-cell">
-                        {isPerfect && <span className="badge badge-perfect">⭐ Perfect</span>}
-                        {needsFollowUp && <span className="badge badge-warning">📉 Follow-up</span>}
+                        {isPerfect && <span className="badge badge-perfect"><i className="fa-solid fa-star" aria-hidden="true"></i> Perfect</span>}
+                        {needsFollowUp && <span className="badge badge-warning"><i className="fa-solid fa-arrow-trend-down" aria-hidden="true"></i> Follow-up</span>}
                         {!isPerfect && !needsFollowUp && <span className="badge-neutral">—</span>}
                       </td>
 
