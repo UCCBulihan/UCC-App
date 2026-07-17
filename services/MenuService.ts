@@ -29,6 +29,16 @@ export class MenuService implements IMenuService {
             ] 
         },
 
+        {
+            sortOrder: 15, name: 'Attendance', iconClass: 'fa-solid fa-calendar-check', path: '',
+            allowedDepartments: [DEPT.MEMBERSHIP],
+            allowedRoles: ['moderator'],
+            subMenuItems: [
+                { sortOrder: 16, name: 'Members Attendance', iconClass: 'fa-solid fa-clipboard-check', path: '/Attendance/MembersAttendance', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] },
+                { sortOrder: 17, name: 'Attendance Report', iconClass: 'fa-solid fa-chart-bar', path: '/Attendance/Report', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] }
+            ]
+        },
+
         { sortOrder: 20, name: 'Roles', iconClass: 'fa-solid fa-user-shield', path: '/Roles', allowedRoles: [ADMIN_ROLE, 'moderator'] },
 
         {

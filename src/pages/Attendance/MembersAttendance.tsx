@@ -88,12 +88,11 @@ export default function MembersAttendance() {
             .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
             .join(" ")
             .trim();
-          const dateOfBirth = typeof data.dateOfBirth === "string" ? data.dateOfBirth : "";
-          const age = computeAge(dateOfBirth);
-          // Only include members with a known age below 13 (Sunday School range)
-          if (fullName && age !== null && age < 13) {
+
+         if (fullName) {
             list.push({ id: docSnap.id, name: fullName });
           }
+          
         });
         list.sort((a, b) => a.name.localeCompare(b.name));
         if (!cancelled) setMembers(list);
