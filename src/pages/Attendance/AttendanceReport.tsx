@@ -54,23 +54,6 @@ export default function AttendanceReport() {
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredMembers = members.filter((m) =>
-    m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedMembers = filteredMembers.slice(
-    (safePage - 1) * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE
-  );
-
-  // Reset to page 1 whenever the search term or year changes so the user
-  // doesn't get stuck on an out-of-range page.
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, viewYear]);
-
   // All Sundays for the viewed year, per month, chronological.
   const sundaysByMonth = useMemo(
     () => MONTHS_SHORT.map((_, month) => getSundaysInMonth(viewYear, month)),
@@ -204,12 +187,44 @@ export default function AttendanceReport() {
     return { total, consecutiveAbsences, isPerfect };
   };
 
-  // --- Dashboard stats ---
-
-  const totalMembers = members.length;
-
   const currentMonthIndex = now.getMonth();
   const showThisMonthStats = isCurrentYear(viewYear);
+
+  // Sort members by how active they are — most Sundays attended this month
+  // (or, for a past year, across the whole year) first, least active last.
+  const sortedMembers = useMemo(() => {
+    const scored = members.map((m) => {
+      const score = showThisMonthStats
+        ? getMonthCount(m.id, currentMonthIndex)
+        : getMemberStats(m.id).total;
+      return { member: m, score };
+    });
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.member.name.localeCompare(b.member.name);
+    });
+    return scored.map((s) => s.member);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, attendanceDays, showThisMonthStats, currentMonthIndex]);
+
+  const filteredMembers = sortedMembers.filter((m) =>
+    m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedMembers = filteredMembers.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 whenever the search term or year changes so the user
+  // doesn't get stuck on an out-of-range page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewYear]);
+
+  const totalMembers = members.length;
 
   const activeThisMonth = showThisMonthStats
     ? members.filter((m) => getMonthCount(m.id, currentMonthIndex) > 0).length
@@ -288,21 +303,28 @@ export default function AttendanceReport() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon icon-red"><i className="fa-solid fa-circle" aria-hidden="true"></i></div>
+              <div className="stat-icon icon-active"><i className="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
               <div className="stat-value">{activeThisMonth ?? "—"}</div>
               <div className="stat-label">Active This Month</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon icon-gray"><i className="fa-regular fa-circle" aria-hidden="true"></i></div>
+              <div className="stat-icon icon-inactive"><i className="fa-solid fa-calendar-xmark" aria-hidden="true"></i></div>
               <div className="stat-value">{inactiveThisMonth ?? "—"}</div>
               <div className="stat-label">Inactive This Month</div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon icon-green"><i className="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+              <div className={`stat-icon ${presentTodayCount !== null ? "icon-green" : "icon-inactive"}`}>
+                <i className="fa-solid fa-calendar-day" aria-hidden="true"></i>
+              </div>
               <div className="stat-value">{presentTodayCount ?? "—"}</div>
               <div className="stat-label">Present Today</div>
+              {presentTodayCount === null && (
+                <div className="stat-caption">
+                  {!showThisMonthStats ? "Viewing another year" : "No service today"}
+                </div>
+              )}
             </div>
 
             <div className="stat-card">
