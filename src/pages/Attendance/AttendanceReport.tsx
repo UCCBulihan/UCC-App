@@ -51,9 +51,25 @@ export default function AttendanceReport() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedMembers = filteredMembers.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 whenever the search term or year changes so the user
+  // doesn't get stuck on an out-of-range page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewYear]);
 
   // All Sundays for the viewed year, per month, chronological.
   const sundaysByMonth = useMemo(
@@ -374,7 +390,7 @@ export default function AttendanceReport() {
               </div>
 
             ) : (
-
+            <>
             <table>
 
               <thead>
@@ -391,7 +407,7 @@ export default function AttendanceReport() {
 
               <tbody>
 
-                {filteredMembers.map((member) => {
+                {paginatedMembers.map((member) => {
                   const { total, consecutiveAbsences, isPerfect } = getMemberStats(member.id);
                   const percentage = totalSundaysInYear > 0
                     ? Math.round((total / totalSundaysInYear) * 100)
@@ -431,6 +447,32 @@ export default function AttendanceReport() {
 
             </table>
 
+            <div className="pagination">
+              <div className="pagination-info">
+                Showing {(safePage - 1) * ITEMS_PER_PAGE + 1}
+                –{Math.min(safePage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
+              </div>
+              <div className="pagination-controls">
+                <button
+                  className="page-btn"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage(safePage - 1)}
+                >
+                  ‹ Prev
+                </button>
+                <span className="page-indicator">
+                  Page {safePage} of {totalPages}
+                </span>
+                <button
+                  className="page-btn"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setCurrentPage(safePage + 1)}
+                >
+                  Next ›
+                </button>
+              </div>
+            </div>
+            </>
             )}
 
           </div>
