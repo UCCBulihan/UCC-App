@@ -35,7 +35,7 @@ export class MenuService implements IMenuService {
             allowedRoles: ['moderator'],
             subMenuItems: [
                 { sortOrder: 16, name: 'Members Attendance', iconClass: 'fa-solid fa-clipboard-check', path: '/Attendance/MembersAttendance', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] },
-                { sortOrder: 17, name: 'Attendance Report', iconClass: 'fa-solid fa-chart-bar', path: '/Attendance/Report', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] }
+                { sortOrder: 17, name: 'Attendance Report', iconClass: 'fa-solid fa-chart-bar', path: '/Attendance/SundaySchoolAttendanceReport', allowedDepartments: [DEPT.MEMBERSHIP], allowedRoles: ['moderator'] }
             ]
         },
 
@@ -65,6 +65,7 @@ export class MenuService implements IMenuService {
             allowedDepartments: [DEPT.SUNDAY_SCHOOL],
             subMenuItems: [
                 { sortOrder: 51, name: 'Attendance', iconClass: 'fa-solid fa-calendar-check', path: '/SundaySchool/SundaySchoolAttendance', allowedDepartments: [DEPT.SUNDAY_SCHOOL] },
+                { sortOrder: 56, name: 'Attendance Report', iconClass: 'fa-solid fa-chart-bar', path: '/SundaySchool/SundaySchoolAttendanceReport', allowedDepartments: [DEPT.SUNDAY_SCHOOL] },
                 { sortOrder: 52, name: 'Line Up', iconClass: 'fa-solid fa-users-line', path: '/SundaySchool/SundaySchoolLineUp', allowedDepartments: [DEPT.SUNDAY_SCHOOL] },
                 { sortOrder: 53, name: 'Savings', iconClass: 'fa-solid fa-piggy-bank', path: '/SundaySchool/SundaySchool', allowedDepartments: [DEPT.SUNDAY_SCHOOL] },
                 { sortOrder: 54, name: 'Ledger', iconClass: 'fa-solid fa-book', path: '/SundaySchool//SundaySchoolLedger', allowedDepartments: [DEPT.SUNDAY_SCHOOL] },

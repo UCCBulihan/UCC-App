@@ -1,14 +1,8 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { collection, getDocs, query, where, doc, setDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase/firebase.ts"; // adjust path if needed
 import NavigationBar from "../Home/NavigationBar/NavigationBar";
-import "./MembersAttendance.css";
-
-const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
-];
+import "./SundaySchoolMembersAttendance.css";
 
 const MONTHS_SHORT = [
   "Jan","Feb","Mar","Apr","May","Jun",
@@ -18,63 +12,73 @@ const MONTHS_SHORT = [
 const MEMBERS_COLLECTION_NAME = "MEMBERS";
 const ATTENDANCE_COLLECTION_NAME = "MEMBERS_ATTENDANCE";
 
-// Members older than this are outside the Sunday School range and are
-// excluded from this view.
-const AGE_LIMIT = 13;
+// Number of consecutive missed Sundays before a member is flagged for follow-up
+const FOLLOW_UP_THRESHOLD = 3;
 
 interface Member {
   id: string;
   name: string;
 }
 
-function computeAge(dateOfBirth?: string): number | null {
-  if (!dateOfBirth) return null;
-  const dob = new Date(dateOfBirth);
-  if (isNaN(dob.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const m = today.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-  return age >= 0 ? age : null;
+interface SundayRef {
+  month: number; // 0-11
+  day: number;
 }
 
-export default function SundaySchoolAttendanceReport() {
+function getSundaysInMonth(year: number, month: number): number[] {
+  const days: number[] = [];
+  const date = new Date(year, month, 1);
+  while (date.getMonth() === month) {
+    if (date.getDay() === 0) days.push(date.getDate());
+    date.setDate(date.getDate() + 1);
+  }
+  return days;
+}
 
-  const navigate = useNavigate();
+export default function AttendanceReport() {
+
   const now = new Date();
+  const isCurrentYear = (year: number) => year === now.getFullYear();
 
   const [viewYear, setViewYear] = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth());
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
-  const [attendance, setAttendance] = useState<Record<string, Record<string, Record<number, boolean>>>>({});
+
+  // memberId -> month(0-11) -> day -> attended
+  const [attendanceDays, setAttendanceDays] = useState<Record<string, Record<number, Record<number, boolean>>>>({});
   const [loadingAttendance, setLoadingAttendance] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredMembers = members.filter((m) =>
-    m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // All Sundays for the viewed year, per month, chronological.
+  const sundaysByMonth = useMemo(
+    () => MONTHS_SHORT.map((_, month) => getSundaysInMonth(viewYear, month)),
+    [viewYear]
   );
 
-  const getSundays = (year: number, month: number) => {
-    const sundays: number[] = [];
-    const date = new Date(year, month, 1);
+  // Sundays that have "already happened" as of today — for a past year, that's
+  // every Sunday; for the current year, only up to and including today.
+  const elapsedSundays: SundayRef[] = useMemo(() => {
+    const list: SundayRef[] = [];
+    sundaysByMonth.forEach((days, month) => {
+      days.forEach((day) => {
+        const date = new Date(viewYear, month, day);
+        if (!isCurrentYear(viewYear) || date <= now) {
+          list.push({ month, day });
+        }
+      });
+    });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sundaysByMonth, viewYear]);
 
-    while (date.getMonth() === month) {
-      if (date.getDay() === 0) {
-        sundays.push(date.getDate());
-      }
-      date.setDate(date.getDate() + 1);
-    }
+  const totalSundaysInYear = sundaysByMonth.reduce((sum, days) => sum + days.length, 0);
 
-    return sundays;
-  };
-
-  const monthKey = `${viewYear}-${viewMonth}`;
-  const sundays = getSundays(viewYear, viewMonth);
-
-  // Fetch members from Firestore (MEMBERS collection), excluding archived
-  // members and anyone above the Sunday School age limit.
+  // Fetch members
   useEffect(() => {
     let cancelled = false;
 
@@ -92,18 +96,14 @@ export default function SundaySchoolAttendanceReport() {
             .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
             .join(" ")
             .trim();
-          const dateOfBirth = typeof data.dateOfBirth === "string" ? data.dateOfBirth : "";
-          const age = computeAge(dateOfBirth);
-          // Only include members with a known age at or below the Sunday
-          // School age limit.
-          if (fullName && age !== null && age <= AGE_LIMIT) {
+          if (fullName) {
             list.push({ id: docSnap.id, name: fullName });
           }
         });
         list.sort((a, b) => a.name.localeCompare(b.name));
         if (!cancelled) setMembers(list);
       } catch (err) {
-        console.error("Failed to load members for attendance:", err);
+        console.error("Failed to load members for attendance report:", err);
       } finally {
         if (!cancelled) setLoadingMembers(false);
       }
@@ -115,8 +115,7 @@ export default function SundaySchoolAttendanceReport() {
     };
   }, []);
 
-  // Fetch attendance for the currently viewed month from Firestore
-  // (MEMBERS_ATTENDANCE collection), one document per member per month.
+  // Fetch every attendance doc for the selected year (one doc per member per month)
   useEffect(() => {
     let cancelled = false;
 
@@ -125,34 +124,33 @@ export default function SundaySchoolAttendanceReport() {
       try {
         const q = query(
           collection(db, ATTENDANCE_COLLECTION_NAME),
-          where("monthKey", "==", monthKey)
+          where("year", "==", viewYear)
         );
         const snapshot = await getDocs(q);
-        const monthData: Record<string, Record<number, boolean>> = {};
+        const data: Record<string, Record<number, Record<number, boolean>>> = {};
 
         snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as {
+          const docData = docSnap.data() as {
             memberId?: string;
+            month?: number;
             days?: Record<string, boolean>;
           };
-          if (!data.memberId) return;
-          const days: Record<number, boolean> = {};
-          if (data.days) {
-            Object.entries(data.days).forEach(([dayStr, val]) => {
-              days[Number(dayStr)] = !!val;
+          if (!docData.memberId || docData.month === undefined) return;
+
+          const dayMap: Record<number, boolean> = {};
+          if (docData.days) {
+            Object.entries(docData.days).forEach(([dayStr, val]) => {
+              dayMap[Number(dayStr)] = !!val;
             });
           }
-          monthData[data.memberId] = days;
+
+          if (!data[docData.memberId]) data[docData.memberId] = {};
+          data[docData.memberId][docData.month] = dayMap;
         });
 
-        if (!cancelled) {
-          setAttendance(prev => ({
-            ...prev,
-            [monthKey]: monthData,
-          }));
-        }
+        if (!cancelled) setAttendanceDays(data);
       } catch (err) {
-        console.error("Failed to load attendance:", err);
+        console.error("Failed to load attendance report data:", err);
       } finally {
         if (!cancelled) setLoadingAttendance(false);
       }
@@ -162,66 +160,118 @@ export default function SundaySchoolAttendanceReport() {
     return () => {
       cancelled = true;
     };
-  }, [monthKey]);
+  }, [viewYear]);
 
-  const toggleAttendance = async (memberId: string, day: number) => {
+  const wasPresent = (memberId: string, month: number, day: number) =>
+    !!attendanceDays[memberId]?.[month]?.[day];
 
-    const previousValue = attendance[monthKey]?.[memberId]?.[day] ?? false;
-    const newValue = !previousValue;
+  const getMonthCount = (memberId: string, month: number) => {
+    const days = sundaysByMonth[month];
+    return days.filter((day) => wasPresent(memberId, month, day)).length;
+  };
 
-    // Optimistic local update
-    setAttendance(prev => {
-      const monthData = prev[monthKey] ?? {};
-      const memberData = monthData[memberId] ?? {};
+  const getMemberStats = (memberId: string) => {
+    const total = MONTHS_SHORT.reduce((sum, _label, month) => sum + getMonthCount(memberId, month), 0);
 
-      return {
-        ...prev,
-        [monthKey]: {
-          ...monthData,
-          [memberId]: {
-            ...memberData,
-            [day]: newValue,
-          },
-        },
-      };
-    });
-
-    // Persist to Firestore (MEMBERS_ATTENDANCE collection)
-    try {
-      const docId = `${memberId}_${monthKey}`;
-      const attendanceDocRef = doc(db, ATTENDANCE_COLLECTION_NAME, docId);
-      await setDoc(
-        attendanceDocRef,
-        {
-          memberId,
-          monthKey,
-          year: viewYear,
-          month: viewMonth,
-          days: { [day]: newValue },
-        },
-        { merge: true }
-      );
-    } catch (err) {
-      console.error("Failed to save attendance:", err);
-      // Revert local state if the save failed
-      setAttendance(prev => {
-        const monthData = prev[monthKey] ?? {};
-        const memberData = monthData[memberId] ?? {};
-
-        return {
-          ...prev,
-          [monthKey]: {
-            ...monthData,
-            [memberId]: {
-              ...memberData,
-              [day]: previousValue,
-            },
-          },
-        };
-      });
+    // Consecutive absences, counted backwards from the most recent elapsed Sunday.
+    let consecutiveAbsences = 0;
+    for (let i = elapsedSundays.length - 1; i >= 0; i--) {
+      const { month, day } = elapsedSundays[i];
+      if (wasPresent(memberId, month, day)) break;
+      consecutiveAbsences++;
     }
 
+    const isPerfect = elapsedSundays.length > 0 &&
+      elapsedSundays.every(({ month, day }) => wasPresent(memberId, month, day));
+
+    return { total, consecutiveAbsences, isPerfect };
   };
+
+  const currentMonthIndex = now.getMonth();
+  const showThisMonthStats = isCurrentYear(viewYear);
+
+  // Sort members by how active they are — most Sundays attended this month
+  // (or, for a past year, across the whole year) first, least active last.
+  const sortedMembers = useMemo(() => {
+    const scored = members.map((m) => {
+      const score = showThisMonthStats
+        ? getMonthCount(m.id, currentMonthIndex)
+        : getMemberStats(m.id).total;
+      return { member: m, score };
+    });
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.member.name.localeCompare(b.member.name);
+    });
+    return scored.map((s) => s.member);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, attendanceDays, showThisMonthStats, currentMonthIndex]);
+
+  const filteredMembers = sortedMembers.filter((m) =>
+    m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedMembers = filteredMembers.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 whenever the search term or year changes so the user
+  // doesn't get stuck on an out-of-range page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewYear]);
+
+  const totalMembers = members.length;
+
+  const activeThisMonth = showThisMonthStats
+    ? members.filter((m) => getMonthCount(m.id, currentMonthIndex) > 0).length
+    : null;
+  const inactiveThisMonth = showThisMonthStats && activeThisMonth !== null
+    ? totalMembers - activeThisMonth
+    : null;
+
+  const yearAttendanceRate = useMemo(() => {
+    if (elapsedSundays.length === 0 || totalMembers === 0) return 0;
+    const possible = elapsedSundays.length * totalMembers;
+    const attended = members.reduce((sum, m) => {
+      return sum + elapsedSundays.filter(({ month, day }) => wasPresent(m.id, month, day)).length;
+    }, 0);
+    return Math.round((attended / possible) * 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, elapsedSundays, attendanceDays]);
+
+  const perfectAttendanceCount = useMemo(
+    () => members.filter((m) => getMemberStats(m.id).isPerfect).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, elapsedSundays, attendanceDays]
+  );
+
+  const needsFollowUpCount = useMemo(
+    () => members.filter((m) => getMemberStats(m.id).consecutiveAbsences >= FOLLOW_UP_THRESHOLD).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, elapsedSundays, attendanceDays]
+  );
+
+  const isTodaySunday = now.getDay() === 0;
+  const presentTodayCount = (showThisMonthStats && isTodaySunday)
+    ? members.filter((m) => wasPresent(m.id, now.getMonth(), now.getDate())).length
+    : null;
+
+  // Monthly trend: attendance % per month across all members, for the bar chart.
+  const monthlyTrend = useMemo(() => {
+    return MONTHS_SHORT.map((label, month) => {
+      const possible = sundaysByMonth[month].length * totalMembers;
+      const attended = members.reduce((sum, m) => sum + getMonthCount(m.id, month), 0);
+      const pct = possible > 0 ? Math.round((attended / possible) * 100) : 0;
+      return { label, pct };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, attendanceDays, sundaysByMonth, totalMembers]);
+
+  const isLoading = loadingMembers || loadingAttendance;
 
   return (
     <div className="app-layout">
@@ -230,162 +280,226 @@ export default function SundaySchoolAttendanceReport() {
 
       <main className="main-content">
 
-       
+        <div className="masthead">
+          <div>
+            <div className="eyebrow">Attendance Report</div>
+            <h1>Yearly Attendance Summary</h1>
+          </div>
+        </div>
 
-          <div className="masthead">
+        {!isLoading && (
+          <div className="stats-grid">
 
-            <div>
-              <div className="eyebrow">Attendance Record</div>
-              <h1>Attendance Tracker</h1>
+            <div className="stat-card">
+              <div className="stat-icon icon-purple"><i className="fa-solid fa-users" aria-hidden="true"></i></div>
+              <div className="stat-value">{totalMembers}</div>
+              <div className="stat-label">Total Members</div>
             </div>
 
-            <button className="btn-add-member" onClick={() => navigate('/Profile/new')}>
-              <i className="fa-solid fa-user-plus" aria-hidden="true" />
-              Add Member
-            </button>
+            <div className="stat-card">
+              <div className="stat-icon icon-blue"><i className="fa-solid fa-arrow-trend-up" aria-hidden="true"></i></div>
+              <div className="stat-value">{yearAttendanceRate}%</div>
+              <div className="stat-label">Attendance Rate ({viewYear})</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon icon-active"><i className="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
+              <div className="stat-value">{activeThisMonth ?? "—"}</div>
+              <div className="stat-label">Active This Month</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon icon-inactive"><i className="fa-solid fa-calendar-xmark" aria-hidden="true"></i></div>
+              <div className="stat-value">{inactiveThisMonth ?? "—"}</div>
+              <div className="stat-label">Inactive This Month</div>
+            </div>
+
+            <div className="stat-card">
+              <div className={`stat-icon ${presentTodayCount !== null ? "icon-green" : "icon-inactive"}`}>
+                <i className="fa-solid fa-calendar-day" aria-hidden="true"></i>
+              </div>
+              <div className="stat-value">{presentTodayCount ?? "—"}</div>
+              <div className="stat-label">Present Today</div>
+              {presentTodayCount === null && (
+                <div className="stat-caption">
+                  {!showThisMonthStats ? "Viewing another year" : "No service today"}
+                </div>
+              )}
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon icon-gold"><i className="fa-solid fa-star" aria-hidden="true"></i></div>
+              <div className="stat-value">{perfectAttendanceCount}</div>
+              <div className="stat-label">Perfect Attendance</div>
+            </div>
+
+            <div className="stat-card stat-card-warning">
+              <div className="stat-icon icon-warning"><i className="fa-solid fa-arrow-trend-down" aria-hidden="true"></i></div>
+              <div className="stat-value">{needsFollowUpCount}</div>
+              <div className="stat-label">Needs Follow-up ({FOLLOW_UP_THRESHOLD}+ absences)</div>
+            </div>
 
           </div>
+        )}
 
-          <div className="card">
-
-            <div className="month-nav">
-
-              <div className="nav-group">
-
-                <button
-                  className="nav-btn"
-                  onClick={() => {
-                    if (viewMonth === 0) {
-                      setViewMonth(11);
-                      setViewYear(viewYear - 1);
-                    } else {
-                      setViewMonth(viewMonth - 1);
-                    }
-                  }}
-                >
-                  ‹
-                </button>
-
-                <div className="label">
-                  {MONTHS[viewMonth]} {viewYear}
-                  <span className="count">
-                    {" "}
-                    {sundays.length} Sundays
-                  </span>
+        {!isLoading && (
+          <div className="card trend-card">
+            <div className="trend-title"><i className="fa-solid fa-chart-column" aria-hidden="true"></i> Monthly Attendance Trend — {viewYear}</div>
+            <div className="trend-chart">
+              {monthlyTrend.map(({ label, pct }) => (
+                <div className="trend-bar-col" key={label}>
+                  <div className="trend-bar-track">
+                    <div
+                      className="trend-bar-fill"
+                      style={{ height: `${Math.max(pct, 2)}%` }}
+                      title={`${label}: ${pct}%`}
+                    />
+                  </div>
+                  <div className="trend-bar-label">{label}</div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                <button
-                  className="nav-btn"
-                  onClick={() => {
-                    if (viewMonth === 11) {
-                      setViewMonth(0);
-                      setViewYear(viewYear + 1);
-                    } else {
-                      setViewMonth(viewMonth + 1);
-                    }
-                  }}
-                >
-                  ›
-                </button>
+        <div className="card">
 
+          <div className="report-nav">
+
+            <div className="nav-group">
+
+              <button
+                className="nav-btn"
+                onClick={() => setViewYear(viewYear - 1)}
+              >
+                ‹
+              </button>
+
+              <div className="label">
+                {viewYear}
+                <span className="count"> {totalSundaysInYear} Sundays</span>
               </div>
 
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search member..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <button
+                className="nav-btn"
+                onClick={() => setViewYear(viewYear + 1)}
+              >
+                ›
+              </button>
 
             </div>
 
-            <div className="table-scroll">
-
-              {loadingMembers || loadingAttendance ? (
-
-                <div className="empty-state">Loading attendance...</div>
-
-              ) : filteredMembers.length === 0 ? (
-
-                <div className="empty-state">
-                  {searchTerm ? "No members match your search." : "No members found."}
-                </div>
-
-              ) : (
-
-              <table>
-
-                <thead>
-
-                  <tr>
-
-                    <th>Member</th>
-
-                    {sundays.map(day => (
-                      <th key={day}>
-                        Sun {MONTHS_SHORT[viewMonth]} {day}
-                      </th>
-                    ))}
-
-                    <th>Total</th>
-
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {filteredMembers.map(member => {
-
-                    const total =
-                      sundays.filter(day =>
-                        attendance[monthKey]?.[member.id]?.[day]
-                      ).length;
-
-                    return (
-                      <tr key={member.id}>
-
-                        <td>{member.name}</td>
-
-                        {sundays.map(day => (
-
-                          <td key={day}>
-
-                            <button
-                              className={
-                                attendance[monthKey]?.[member.id]?.[day]
-                                  ? "chk checked"
-                                  : "chk"
-                              }
-                              onClick={() =>
-                                toggleAttendance(member.id, day)
-                              }
-                            >
-                              {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
-                            </button>
-
-                          </td>
-
-                        ))}
-
-                        <td>{total}/{sundays.length}</td>
-
-                      </tr>
-                    );
-
-                  })}
-
-                </tbody>
-
-              </table>
-
-              )}
-
-            </div>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search member..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
 
           </div>
 
+          <div className="table-scroll">
+
+            {isLoading ? (
+
+              <div className="empty-state">Loading report...</div>
+
+            ) : filteredMembers.length === 0 ? (
+
+              <div className="empty-state">
+                {searchTerm ? "No members match your search." : "No members found."}
+              </div>
+
+            ) : (
+            <>
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  {MONTHS_SHORT.map((label) => (
+                    <th key={label}>{label}</th>
+                  ))}
+                  <th>Total</th>
+                  <th>%</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {paginatedMembers.map((member) => {
+                  const { total, consecutiveAbsences, isPerfect } = getMemberStats(member.id);
+                  const percentage = totalSundaysInYear > 0
+                    ? Math.round((total / totalSundaysInYear) * 100)
+                    : 0;
+                  const needsFollowUp = consecutiveAbsences >= FOLLOW_UP_THRESHOLD;
+
+                  const pctClass = percentage >= 75 ? "pct-good" : percentage >= 40 ? "pct-mid" : "pct-low";
+
+                  return (
+                    <tr key={member.id} className={needsFollowUp ? "row-flagged" : ""}>
+
+                      <td className="member-cell">{member.name}</td>
+
+                      {MONTHS_SHORT.map((_, monthIndex) => {
+                        const attended = getMonthCount(member.id, monthIndex);
+                        const possible = sundaysByMonth[monthIndex].length;
+                        return (
+                          <td key={monthIndex} className="count-cell">
+                            {possible > 0 ? `${attended}/${possible}` : "—"}
+                          </td>
+                        );
+                      })}
+
+                      <td className="total-cell">{total}/{totalSundaysInYear}</td>
+                      <td className={`pct-cell ${pctClass}`}>{percentage}%</td>
+                      <td className="status-cell">
+                        {isPerfect && <span className="badge badge-perfect"><i className="fa-solid fa-star" aria-hidden="true"></i> Perfect</span>}
+                        {needsFollowUp && <span className="badge badge-warning"><i className="fa-solid fa-arrow-trend-down" aria-hidden="true"></i> Follow-up</span>}
+                        {!isPerfect && !needsFollowUp && <span className="badge-neutral">—</span>}
+                      </td>
+
+                    </tr>
+                  );
+                })}
+
+              </tbody>
+
+            </table>
+
+            <div className="pagination">
+              <div className="pagination-info">
+                Showing {(safePage - 1) * ITEMS_PER_PAGE + 1}
+                –{Math.min(safePage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
+              </div>
+              <div className="pagination-controls">
+                <button
+                  className="page-btn"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage(safePage - 1)}
+                >
+                  ‹ Prev
+                </button>
+                <span className="page-indicator">
+                  Page {safePage} of {totalPages}
+                </span>
+                <button
+                  className="page-btn"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setCurrentPage(safePage + 1)}
+                >
+                  Next ›
+                </button>
+              </div>
+            </div>
+            </>
+            )}
+
+          </div>
+
+        </div>
 
       </main>
 

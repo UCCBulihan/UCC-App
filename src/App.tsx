@@ -18,6 +18,7 @@ import SundaySchoolReport from './pages/SundaySchool/SundaySchoolReport'
 import SundaySchoolLedger from './pages/SundaySchool/SundaySchoolLedger'
 import SundaySchoolLineUp from './pages/SundaySchool/SundaySchoolLineUp'
 import SundaySchoolAttendance from './pages/SundaySchool/SundaySchoolAttendance'
+import SundaySchoolAttendanceReport from './pages/SundaySchool/SundaySchoolAttendanceReport'
 import Ongoing from './pages/Defaults/Ongoing'
 import MembersAttendance from './pages/Attendance/MembersAttendance'
 import AttendanceReport from './pages/Attendance/AttendanceReport'
@@ -38,6 +39,7 @@ useAuthSync();
       <Route path="visitation/visitation" element={<Visitation/>} />
       <Route path='SundaySchool/SundaySchoolLedger' element ={<SundaySchoolLedger/>} />
       <Route path='SundaySchool/SundaySchoolAttendance' element ={<SundaySchoolAttendance/>} />
+      <Route path='SundaySchool/SundaySchoolAttendanceReport' element ={<SundaySchoolAttendanceReport/>} />
       <Route path='SundaySchool/SundaySchool' element ={<SundaySchool/>} />
       <Route path='SundaySchool/report' element ={<SundaySchoolReport/>} />
       <Route path='SundaySchool/SundaySchoolLineUp' element ={<SundaySchoolLineUp/>} />
@@ -46,7 +48,7 @@ useAuthSync();
       <Route path="/roles" element={<Roles />}/>
       <Route path="/signup" element={<Signup />} />
       <Route path="/Attendance/MembersAttendance" element={<MembersAttendance />} />
-      <Route path="/Attendance/Report" element={<AttendanceReport />} />
+      <Route path="/Attendance/SundaySchoolAttendanceReport" element={<AttendanceReport />} />
       <Route path="/Defaults/Ongoing" element={<Ongoing />} />
 
     </Routes>
