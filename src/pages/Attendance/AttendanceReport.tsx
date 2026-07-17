@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase/firebase.ts"; // adjust path if needed
 import NavigationBar from "../Home/NavigationBar/NavigationBar";
@@ -12,44 +12,74 @@ const MONTHS_SHORT = [
 const MEMBERS_COLLECTION_NAME = "MEMBERS";
 const ATTENDANCE_COLLECTION_NAME = "MEMBERS_ATTENDANCE";
 
+// Number of consecutive missed Sundays before a member is flagged for follow-up
+const FOLLOW_UP_THRESHOLD = 3;
+
 interface Member {
   id: string;
   name: string;
 }
 
-// month -> count of Sundays that fall in it, for a given year
-function getSundaysInMonth(year: number, month: number): number {
-  let count = 0;
+interface SundayRef {
+  month: number; // 0-11
+  day: number;
+}
+
+function getSundaysInMonth(year: number, month: number): number[] {
+  const days: number[] = [];
   const date = new Date(year, month, 1);
   while (date.getMonth() === month) {
-    if (date.getDay() === 0) count++;
+    if (date.getDay() === 0) days.push(date.getDate());
     date.setDate(date.getDate() + 1);
   }
-  return count;
+  return days;
 }
 
 export default function AttendanceReport() {
 
   const now = new Date();
+  const isCurrentYear = (year: number) => year === now.getFullYear();
+
   const [viewYear, setViewYear] = useState(now.getFullYear());
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  // memberId -> month(0-11) -> count of Sundays attended that month
-  const [monthlyCounts, setMonthlyCounts] = useState<Record<string, Record<number, number>>>({});
+  // memberId -> month(0-11) -> day -> attended
+  const [attendanceDays, setAttendanceDays] = useState<Record<string, Record<number, Record<number, boolean>>>>({});
   const [loadingAttendance, setLoadingAttendance] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-
-  const sundaysPerMonth = MONTHS_SHORT.map((_, month) => getSundaysInMonth(viewYear, month));
-  const totalSundaysInYear = sundaysPerMonth.reduce((sum, n) => sum + n, 0);
 
   const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
 
-  // Fetch members (same pattern used across the app)
+  // All Sundays for the viewed year, per month, chronological.
+  const sundaysByMonth = useMemo(
+    () => MONTHS_SHORT.map((_, month) => getSundaysInMonth(viewYear, month)),
+    [viewYear]
+  );
+
+  // Sundays that have "already happened" as of today — for a past year, that's
+  // every Sunday; for the current year, only up to and including today.
+  const elapsedSundays: SundayRef[] = useMemo(() => {
+    const list: SundayRef[] = [];
+    sundaysByMonth.forEach((days, month) => {
+      days.forEach((day) => {
+        const date = new Date(viewYear, month, day);
+        if (!isCurrentYear(viewYear) || date <= now) {
+          list.push({ month, day });
+        }
+      });
+    });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sundaysByMonth, viewYear]);
+
+  const totalSundaysInYear = sundaysByMonth.reduce((sum, days) => sum + days.length, 0);
+
+  // Fetch members
   useEffect(() => {
     let cancelled = false;
 
@@ -98,25 +128,28 @@ export default function AttendanceReport() {
           where("year", "==", viewYear)
         );
         const snapshot = await getDocs(q);
-        const counts: Record<string, Record<number, number>> = {};
+        const data: Record<string, Record<number, Record<number, boolean>>> = {};
 
         snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as {
+          const docData = docSnap.data() as {
             memberId?: string;
             month?: number;
             days?: Record<string, boolean>;
           };
-          if (!data.memberId || data.month === undefined) return;
+          if (!docData.memberId || docData.month === undefined) return;
 
-          const attendedCount = data.days
-            ? Object.values(data.days).filter(Boolean).length
-            : 0;
+          const dayMap: Record<number, boolean> = {};
+          if (docData.days) {
+            Object.entries(docData.days).forEach(([dayStr, val]) => {
+              dayMap[Number(dayStr)] = !!val;
+            });
+          }
 
-          if (!counts[data.memberId]) counts[data.memberId] = {};
-          counts[data.memberId][data.month] = attendedCount;
+          if (!data[docData.memberId]) data[docData.memberId] = {};
+          data[docData.memberId][docData.month] = dayMap;
         });
 
-        if (!cancelled) setMonthlyCounts(counts);
+        if (!cancelled) setAttendanceDays(data);
       } catch (err) {
         console.error("Failed to load attendance report data:", err);
       } finally {
@@ -130,10 +163,84 @@ export default function AttendanceReport() {
     };
   }, [viewYear]);
 
-  const getMemberTotal = (memberId: string) => {
-    const memberMonths = monthlyCounts[memberId] ?? {};
-    return Object.values(memberMonths).reduce((sum, n) => sum + n, 0);
+  const wasPresent = (memberId: string, month: number, day: number) =>
+    !!attendanceDays[memberId]?.[month]?.[day];
+
+  const getMonthCount = (memberId: string, month: number) => {
+    const days = sundaysByMonth[month];
+    return days.filter((day) => wasPresent(memberId, month, day)).length;
   };
+
+  const getMemberStats = (memberId: string) => {
+    const total = MONTHS_SHORT.reduce((sum, _label, month) => sum + getMonthCount(memberId, month), 0);
+
+    // Consecutive absences, counted backwards from the most recent elapsed Sunday.
+    let consecutiveAbsences = 0;
+    for (let i = elapsedSundays.length - 1; i >= 0; i--) {
+      const { month, day } = elapsedSundays[i];
+      if (wasPresent(memberId, month, day)) break;
+      consecutiveAbsences++;
+    }
+
+    const isPerfect = elapsedSundays.length > 0 &&
+      elapsedSundays.every(({ month, day }) => wasPresent(memberId, month, day));
+
+    return { total, consecutiveAbsences, isPerfect };
+  };
+
+  // --- Dashboard stats ---
+
+  const totalMembers = members.length;
+
+  const currentMonthIndex = now.getMonth();
+  const showThisMonthStats = isCurrentYear(viewYear);
+
+  const activeThisMonth = showThisMonthStats
+    ? members.filter((m) => getMonthCount(m.id, currentMonthIndex) > 0).length
+    : null;
+  const inactiveThisMonth = showThisMonthStats && activeThisMonth !== null
+    ? totalMembers - activeThisMonth
+    : null;
+
+  const yearAttendanceRate = useMemo(() => {
+    if (elapsedSundays.length === 0 || totalMembers === 0) return 0;
+    const possible = elapsedSundays.length * totalMembers;
+    const attended = members.reduce((sum, m) => {
+      return sum + elapsedSundays.filter(({ month, day }) => wasPresent(m.id, month, day)).length;
+    }, 0);
+    return Math.round((attended / possible) * 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, elapsedSundays, attendanceDays]);
+
+  const perfectAttendanceCount = useMemo(
+    () => members.filter((m) => getMemberStats(m.id).isPerfect).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, elapsedSundays, attendanceDays]
+  );
+
+  const needsFollowUpCount = useMemo(
+    () => members.filter((m) => getMemberStats(m.id).consecutiveAbsences >= FOLLOW_UP_THRESHOLD).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, elapsedSundays, attendanceDays]
+  );
+
+  const isTodaySunday = now.getDay() === 0;
+  const presentTodayCount = (showThisMonthStats && isTodaySunday)
+    ? members.filter((m) => wasPresent(m.id, now.getMonth(), now.getDate())).length
+    : null;
+
+  // Monthly trend: attendance % per month across all members, for the bar chart.
+  const monthlyTrend = useMemo(() => {
+    return MONTHS_SHORT.map((label, month) => {
+      const possible = sundaysByMonth[month].length * totalMembers;
+      const attended = members.reduce((sum, m) => sum + getMonthCount(m.id, month), 0);
+      const pct = possible > 0 ? Math.round((attended / possible) * 100) : 0;
+      return { label, pct };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, attendanceDays, sundaysByMonth, totalMembers]);
+
+  const isLoading = loadingMembers || loadingAttendance;
 
   return (
     <div className="app-layout">
@@ -148,6 +255,74 @@ export default function AttendanceReport() {
             <h1>Yearly Attendance Summary</h1>
           </div>
         </div>
+
+        {!isLoading && (
+          <div className="stats-grid">
+
+            <div className="stat-card">
+              <div className="stat-icon">👥</div>
+              <div className="stat-value">{totalMembers}</div>
+              <div className="stat-label">Total Members</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">📈</div>
+              <div className="stat-value">{yearAttendanceRate}%</div>
+              <div className="stat-label">Attendance Rate ({viewYear})</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">🔴</div>
+              <div className="stat-value">{activeThisMonth ?? "—"}</div>
+              <div className="stat-label">Active This Month</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">⚪</div>
+              <div className="stat-value">{inactiveThisMonth ?? "—"}</div>
+              <div className="stat-label">Inactive This Month</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">✅</div>
+              <div className="stat-value">{presentTodayCount ?? "—"}</div>
+              <div className="stat-label">Present Today</div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">⭐</div>
+              <div className="stat-value">{perfectAttendanceCount}</div>
+              <div className="stat-label">Perfect Attendance</div>
+            </div>
+
+            <div className="stat-card stat-card-warning">
+              <div className="stat-icon">📉</div>
+              <div className="stat-value">{needsFollowUpCount}</div>
+              <div className="stat-label">Needs Follow-up ({FOLLOW_UP_THRESHOLD}+ absences)</div>
+            </div>
+
+          </div>
+        )}
+
+        {!isLoading && (
+          <div className="card trend-card">
+            <div className="trend-title">📊 Monthly Attendance Trend — {viewYear}</div>
+            <div className="trend-chart">
+              {monthlyTrend.map(({ label, pct }) => (
+                <div className="trend-bar-col" key={label}>
+                  <div className="trend-bar-track">
+                    <div
+                      className="trend-bar-fill"
+                      style={{ height: `${Math.max(pct, 2)}%` }}
+                      title={`${label}: ${pct}%`}
+                    />
+                  </div>
+                  <div className="trend-bar-label">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="card">
 
@@ -188,7 +363,7 @@ export default function AttendanceReport() {
 
           <div className="table-scroll">
 
-            {loadingMembers || loadingAttendance ? (
+            {isLoading ? (
 
               <div className="empty-state">Loading report...</div>
 
@@ -210,25 +385,29 @@ export default function AttendanceReport() {
                   ))}
                   <th>Total</th>
                   <th>%</th>
+                  <th>Status</th>
                 </tr>
               </thead>
 
               <tbody>
 
                 {filteredMembers.map((member) => {
-                  const total = getMemberTotal(member.id);
+                  const { total, consecutiveAbsences, isPerfect } = getMemberStats(member.id);
                   const percentage = totalSundaysInYear > 0
                     ? Math.round((total / totalSundaysInYear) * 100)
                     : 0;
+                  const needsFollowUp = consecutiveAbsences >= FOLLOW_UP_THRESHOLD;
+
+                  const pctClass = percentage >= 75 ? "pct-good" : percentage >= 40 ? "pct-mid" : "pct-low";
 
                   return (
-                    <tr key={member.id}>
+                    <tr key={member.id} className={needsFollowUp ? "row-flagged" : ""}>
 
-                      <td>{member.name}</td>
+                      <td className="member-cell">{member.name}</td>
 
                       {MONTHS_SHORT.map((_, monthIndex) => {
-                        const attended = monthlyCounts[member.id]?.[monthIndex] ?? 0;
-                        const possible = sundaysPerMonth[monthIndex];
+                        const attended = getMonthCount(member.id, monthIndex);
+                        const possible = sundaysByMonth[monthIndex].length;
                         return (
                           <td key={monthIndex} className="count-cell">
                             {possible > 0 ? `${attended}/${possible}` : "—"}
@@ -237,7 +416,12 @@ export default function AttendanceReport() {
                       })}
 
                       <td className="total-cell">{total}/{totalSundaysInYear}</td>
-                      <td className="pct-cell">{percentage}%</td>
+                      <td className={`pct-cell ${pctClass}`}>{percentage}%</td>
+                      <td className="status-cell">
+                        {isPerfect && <span className="badge badge-perfect">⭐ Perfect</span>}
+                        {needsFollowUp && <span className="badge badge-warning">📉 Follow-up</span>}
+                        {!isPerfect && !needsFollowUp && <span className="badge-neutral">—</span>}
+                      </td>
 
                     </tr>
                   );
