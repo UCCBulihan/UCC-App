@@ -18,9 +18,24 @@ const MONTHS_SHORT = [
 const MEMBERS_COLLECTION_NAME = "MEMBERS";
 const ATTENDANCE_COLLECTION_NAME = "MEMBERS_ATTENDANCE";
 
+// Members older than this are outside the Sunday School range and are
+// excluded from this view.
+const AGE_LIMIT = 13;
+
 interface Member {
   id: string;
   name: string;
+}
+
+function computeAge(dateOfBirth?: string): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age >= 0 ? age : null;
 }
 
 export default function MembersAttendance() {
@@ -59,7 +74,7 @@ export default function MembersAttendance() {
   const sundays = getSundays(viewYear, viewMonth);
 
   // Fetch members from Firestore (MEMBERS collection), excluding archived
-  // members. No age restriction here — this view includes all members.
+  // members and anyone above the Sunday School age limit.
   useEffect(() => {
     let cancelled = false;
 
@@ -77,7 +92,11 @@ export default function MembersAttendance() {
             .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
             .join(" ")
             .trim();
-          if (fullName) {
+          const dateOfBirth = typeof data.dateOfBirth === "string" ? data.dateOfBirth : "";
+          const age = computeAge(dateOfBirth);
+          // Only include members with a known age at or below the Sunday
+          // School age limit.
+          if (fullName && age !== null && age <= AGE_LIMIT) {
             list.push({ id: docSnap.id, name: fullName });
           }
         });
