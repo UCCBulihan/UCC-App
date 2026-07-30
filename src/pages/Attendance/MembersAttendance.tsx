@@ -37,9 +37,18 @@ export default function MembersAttendance() {
   const [loadingAttendance, setLoadingAttendance] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
+
+  // Reset to first page whenever the search term or the viewed month changes,
+  // so the user isn't stranded on an out-of-range page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewYear, viewMonth]);
 
   const getSundays = (year: number, month: number) => {
     const sundays: number[] = [];
@@ -57,6 +66,24 @@ export default function MembersAttendance() {
 
   const monthKey = `${viewYear}-${viewMonth}`;
   const sundays = getSundays(viewYear, viewMonth);
+
+  const sortedMembers = [...filteredMembers]
+    .map(member => ({
+      member,
+      total: sundays.filter(day => attendance[monthKey]?.[member.id]?.[day]).length,
+    }))
+    .sort((a, b) => {
+      // Pinaka-madalas dumalo muna sa taas; pantay = alphabetical
+      if (b.total !== a.total) return b.total - a.total;
+      return a.member.name.localeCompare(b.member.name);
+    });
+
+  const totalPages = Math.max(1, Math.ceil(sortedMembers.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedMembers = sortedMembers.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
 
   // Fetch members from Firestore (MEMBERS collection), excluding archived
   // members. No age restriction here — this view includes all members.
@@ -317,18 +344,7 @@ export default function MembersAttendance() {
 
                <tbody>
 
-                  {[...filteredMembers]
-                    .map(member => ({
-                      member,
-                      total: sundays.filter(day =>
-                        attendance[monthKey]?.[member.id]?.[day]
-                      ).length,
-                    }))
-                    .sort((a, b) => {
-                      // Pinaka-madalas dumalo muna sa taas; pantay = alphabetical
-                      if (b.total !== a.total) return b.total - a.total;
-                      return a.member.name.localeCompare(b.member.name);
-                    })
+                  {paginatedMembers
                     .map(({ member, total }) => {
 
                       return (
@@ -371,6 +387,43 @@ export default function MembersAttendance() {
               )}
 
             </div>
+
+            {!loadingMembers && !loadingAttendance && sortedMembers.length > 0 && (
+
+              <div className="pagination">
+
+                <div className="pagination-info">
+                  Showing {(safeCurrentPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(safeCurrentPage * PAGE_SIZE, sortedMembers.length)} of {sortedMembers.length} members
+                </div>
+
+                <div className="pagination-controls">
+
+                  <button
+                    className="nav-btn"
+                    disabled={safeCurrentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    ‹
+                  </button>
+
+                  <span className="pagination-page">
+                    Page {safeCurrentPage} of {totalPages}
+                  </span>
+
+                  <button
+                    className="nav-btn"
+                    disabled={safeCurrentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    ›
+                  </button>
+
+                </div>
+
+              </div>
+
+            )}
 
           </div>
 

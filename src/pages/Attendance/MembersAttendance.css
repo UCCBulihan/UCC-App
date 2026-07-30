@@ -266,6 +266,38 @@
   }
   .chk.checked svg{opacity:1;transform:scale(1);}
  
+  .pagination{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    padding-top:16px;
+    margin-top:16px;
+    border-top:1px solid var(--line);
+  }
+  .pagination-info{
+    font-size:12.5px;
+    color:var(--ink-faint);
+  }
+  .pagination-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .pagination-page{
+    font-size:13px;
+    font-weight:500;
+    color:var(--ink-soft);
+    min-width:96px;
+    text-align:center;
+  }
+  .nav-btn:disabled{
+    cursor:not-allowed;
+    opacity:.45;
+  }
+  .nav-btn:disabled:hover{background:var(--surface);border-color:var(--line);}
+
   .empty-state{
     text-align:center;
     padding:36px 20px;

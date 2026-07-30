@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebase.ts"; // adjust path if needed
 import NavigationBar from "../Home/NavigationBar/NavigationBar";
-import "./SundaySchoolAttendance.css";
+import "./MembersAttendance.css";
 
 const MONTHS = [
   "January","February","March","April","May","June",
@@ -17,6 +17,10 @@ const MONTHS_SHORT = [
 
 const MEMBERS_COLLECTION_NAME = "MEMBERS";
 const ATTENDANCE_COLLECTION_NAME = "MEMBERS_ATTENDANCE";
+
+// Members older than this are outside the Sunday School range and are
+// excluded from this view.
+const AGE_LIMIT = 13;
 
 interface Member {
   id: string;
@@ -34,7 +38,7 @@ function computeAge(dateOfBirth?: string): number | null {
   return age >= 0 ? age : null;
 }
 
-export default function SundaySchoolAttendance() {
+export default function MembersAttendance() {
 
   const navigate = useNavigate();
   const now = new Date();
@@ -48,9 +52,18 @@ export default function SundaySchoolAttendance() {
   const [loadingAttendance, setLoadingAttendance] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
+
+  // Reset to first page whenever the search term or the viewed month changes,
+  // so the user isn't stranded on an out-of-range page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewYear, viewMonth]);
 
   const getSundays = (year: number, month: number) => {
     const sundays: number[] = [];
@@ -69,8 +82,26 @@ export default function SundaySchoolAttendance() {
   const monthKey = `${viewYear}-${viewMonth}`;
   const sundays = getSundays(viewYear, viewMonth);
 
+  const sortedMembers = [...filteredMembers]
+    .map(member => ({
+      member,
+      total: sundays.filter(day => attendance[monthKey]?.[member.id]?.[day]).length,
+    }))
+    .sort((a, b) => {
+      // Pinaka-madalas dumalo muna sa taas; pantay = alphabetical
+      if (b.total !== a.total) return b.total - a.total;
+      return a.member.name.localeCompare(b.member.name);
+    });
+
+  const totalPages = Math.max(1, Math.ceil(sortedMembers.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedMembers = sortedMembers.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
+
   // Fetch members from Firestore (MEMBERS collection), excluding archived
-  // members. Same pattern used in SundaySchoolLineUp for consistency.
+  // members and anyone above the Sunday School age limit.
   useEffect(() => {
     let cancelled = false;
 
@@ -90,8 +121,9 @@ export default function SundaySchoolAttendance() {
             .trim();
           const dateOfBirth = typeof data.dateOfBirth === "string" ? data.dateOfBirth : "";
           const age = computeAge(dateOfBirth);
-          // Only include members with a known age below 13 (Sunday School range)
-          if (fullName && age !== null && age < 13) {
+          // Only include members with a known age at or below the Sunday
+          // School age limit.
+          if (fullName && age !== null && age <= AGE_LIMIT) {
             list.push({ id: docSnap.id, name: fullName });
           }
         });
@@ -328,55 +360,43 @@ export default function SundaySchoolAttendance() {
                   </tr>
 
                 </thead>
-                
+
                 <tbody>
 
-                  {[...filteredMembers]
-                    .map(member => ({
-                      member,
-                      total: sundays.filter(day =>
-                        attendance[monthKey]?.[member.id]?.[day]
-                      ).length,
-                    }))
-                    .sort((a, b) => {
-                      // Pinaka-madalas dumalo muna sa taas; pantay = alphabetical
-                      if (b.total !== a.total) return b.total - a.total;
-                      return a.member.name.localeCompare(b.member.name);
-                    })
-                    .map(({ member, total }) => {
+                  {paginatedMembers.map(({ member, total }) => {
 
-                      return (
-                        <tr key={member.id}>
+                    return (
+                      <tr key={member.id}>
 
-                          <td>{member.name}</td>
+                        <td>{member.name}</td>
 
-                          {sundays.map(day => (
+                        {sundays.map(day => (
 
-                            <td key={day}>
+                          <td key={day}>
 
-                              <button
-                                className={
-                                  attendance[monthKey]?.[member.id]?.[day]
-                                    ? "chk checked"
-                                    : "chk"
-                                }
-                                onClick={() =>
-                                  toggleAttendance(member.id, day)
-                                }
-                              >
-                                {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
-                              </button>
+                            <button
+                              className={
+                                attendance[monthKey]?.[member.id]?.[day]
+                                  ? "chk checked"
+                                  : "chk"
+                              }
+                              onClick={() =>
+                                toggleAttendance(member.id, day)
+                              }
+                            >
+                              {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
+                            </button>
 
-                            </td>
+                          </td>
 
-                          ))}
+                        ))}
 
-                          <td>{total}/{sundays.length}</td>
+                        <td>{total}/{sundays.length}</td>
 
-                        </tr>
-                      );
+                      </tr>
+                    );
 
-                    })}
+                  })}
 
                 </tbody>
 
@@ -385,6 +405,43 @@ export default function SundaySchoolAttendance() {
               )}
 
             </div>
+
+            {!loadingMembers && !loadingAttendance && sortedMembers.length > 0 && (
+
+              <div className="pagination">
+
+                <div className="pagination-info">
+                  Showing {(safeCurrentPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(safeCurrentPage * PAGE_SIZE, sortedMembers.length)} of {sortedMembers.length} members
+                </div>
+
+                <div className="pagination-controls">
+
+                  <button
+                    className="nav-btn"
+                    disabled={safeCurrentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    ‹
+                  </button>
+
+                  <span className="pagination-page">
+                    Page {safeCurrentPage} of {totalPages}
+                  </span>
+
+                  <button
+                    className="nav-btn"
+                    disabled={safeCurrentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    ›
+                  </button>
+
+                </div>
+
+              </div>
+
+            )}
 
           </div>
 
