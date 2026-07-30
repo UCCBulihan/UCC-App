@@ -315,47 +315,54 @@ export default function MembersAttendance() {
 
                 </thead>
 
-                <tbody>
+               <tbody>
 
-                  {filteredMembers.map(member => {
-
-                    const total =
-                      sundays.filter(day =>
+                  {[...filteredMembers]
+                    .map(member => ({
+                      member,
+                      total: sundays.filter(day =>
                         attendance[monthKey]?.[member.id]?.[day]
-                      ).length;
+                      ).length,
+                    }))
+                    .sort((a, b) => {
+                      // Pinaka-madalas dumalo muna sa taas; pantay = alphabetical
+                      if (b.total !== a.total) return b.total - a.total;
+                      return a.member.name.localeCompare(b.member.name);
+                    })
+                    .map(({ member, total }) => {
 
-                    return (
-                      <tr key={member.id}>
+                      return (
+                        <tr key={member.id}>
 
-                        <td>{member.name}</td>
+                          <td>{member.name}</td>
 
-                        {sundays.map(day => (
+                          {sundays.map(day => (
 
-                          <td key={day}>
+                            <td key={day}>
 
-                            <button
-                              className={
-                                attendance[monthKey]?.[member.id]?.[day]
-                                  ? "chk checked"
-                                  : "chk"
-                              }
-                              onClick={() =>
-                                toggleAttendance(member.id, day)
-                              }
-                            >
-                              {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
-                            </button>
+                              <button
+                                className={
+                                  attendance[monthKey]?.[member.id]?.[day]
+                                    ? "chk checked"
+                                    : "chk"
+                                }
+                                onClick={() =>
+                                  toggleAttendance(member.id, day)
+                                }
+                              >
+                                {attendance[monthKey]?.[member.id]?.[day] ? "✓" : ""}
+                              </button>
 
-                          </td>
+                            </td>
 
-                        ))}
+                          ))}
 
-                        <td>{total}/{sundays.length}</td>
+                          <td>{total}/{sundays.length}</td>
 
-                      </tr>
-                    );
+                        </tr>
+                      );
 
-                  })}
+                    })}
 
                 </tbody>
 
