@@ -51,6 +51,9 @@ export default function AttendanceReport() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Month currently opened in the drill-down modal (0-11), or null if closed.
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -271,6 +274,31 @@ export default function AttendanceReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [members, attendanceDays, sundaysByMonth, totalMembers]);
 
+  // Active/inactive member breakdown for whichever month is opened in the
+  // drill-down modal. "Active" = attended at least one Sunday that month.
+  const monthDetail = useMemo(() => {
+    if (selectedMonth === null) return null;
+
+    const possible = sundaysByMonth[selectedMonth].length;
+    const active: { member: Member; count: number }[] = [];
+    const inactive: Member[] = [];
+
+    members.forEach((m) => {
+      const count = getMonthCount(m.id, selectedMonth);
+      if (count > 0) {
+        active.push({ member: m, count });
+      } else {
+        inactive.push(m);
+      }
+    });
+
+    active.sort((a, b) => b.count - a.count || a.member.name.localeCompare(b.member.name));
+    inactive.sort((a, b) => a.name.localeCompare(b.name));
+
+    return { possible, active, inactive };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth, members, attendanceDays, sundaysByMonth]);
+
   const isLoading = loadingMembers || loadingAttendance;
 
   return (
@@ -418,8 +446,17 @@ export default function AttendanceReport() {
               <thead>
                 <tr>
                   <th>Member</th>
-                  {MONTHS_SHORT.map((label) => (
-                    <th key={label}>{label}</th>
+                  {MONTHS_SHORT.map((label, monthIndex) => (
+                    <th key={label}>
+                      <button
+                        type="button"
+                        className="month-th-btn"
+                        onClick={() => setSelectedMonth(monthIndex)}
+                        title={`View who attended in ${label}`}
+                      >
+                        {label}
+                      </button>
+                    </th>
                   ))}
                   <th>Total</th>
                   <th>%</th>
@@ -441,7 +478,7 @@ export default function AttendanceReport() {
                   return (
                     <tr key={member.id} className={needsFollowUp ? "row-flagged" : ""}>
 
-                      <td className="member-cell">{member.name}</td>
+                      <td className="member-cell" title={member.name}>{member.name}</td>
 
                       {MONTHS_SHORT.map((_, monthIndex) => {
                         const attended = getMonthCount(member.id, monthIndex);
@@ -502,6 +539,82 @@ export default function AttendanceReport() {
         </div>
 
       </main>
+
+      {selectedMonth !== null && monthDetail && (
+        <div className="month-modal-overlay" onClick={() => setSelectedMonth(null)}>
+          <div className="month-modal" onClick={(e) => e.stopPropagation()}>
+
+            <div className="month-modal-header">
+              <h2>{MONTHS_SHORT[selectedMonth]} {viewYear}</h2>
+              <button
+                type="button"
+                className="month-modal-close"
+                onClick={() => setSelectedMonth(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="month-modal-summary">
+              <div className="month-modal-summary-item">
+                <span className="value active">{monthDetail.active.length}</span>
+                <span className="label">Active</span>
+              </div>
+              <div className="month-modal-summary-item">
+                <span className="value inactive">{monthDetail.inactive.length}</span>
+                <span className="label">Inactive</span>
+              </div>
+              <div className="month-modal-summary-item">
+                <span className="value">{monthDetail.possible}</span>
+                <span className="label">Sundays</span>
+              </div>
+            </div>
+
+            <div className="month-modal-columns">
+
+              <div className="month-modal-col">
+                <h3>
+                  <i className="fa-solid fa-calendar-check icon-active" aria-hidden="true"></i>
+                  Active ({monthDetail.active.length})
+                </h3>
+                {monthDetail.active.length === 0 ? (
+                  <p className="month-modal-empty">Walang dumalo this month.</p>
+                ) : (
+                  <ul className="month-modal-list">
+                    {monthDetail.active.map(({ member, count }) => (
+                      <li key={member.id}>
+                        <span>{member.name}</span>
+                        <span className="tag">{count}/{monthDetail.possible}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="month-modal-col">
+                <h3>
+                  <i className="fa-solid fa-calendar-xmark icon-inactive" aria-hidden="true"></i>
+                  Inactive ({monthDetail.inactive.length})
+                </h3>
+                {monthDetail.inactive.length === 0 ? (
+                  <p className="month-modal-empty">Lahat dumalo nang at least once.</p>
+                ) : (
+                  <ul className="month-modal-list">
+                    {monthDetail.inactive.map((m) => (
+                      <li key={m.id}>
+                        <span>{m.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
