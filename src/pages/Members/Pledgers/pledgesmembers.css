@@ -603,6 +603,14 @@
 
 .field label .req { color: #ef4444; margin-left: 2px; }
 
+.field-note {
+  font-size: 12.5px;
+  color: #9ca3af;
+  margin: -6px 0 16px;
+}
+
+.field-note .req { color: #ef4444; margin-right: 2px; }
+
 .input-wrap {
   position: relative;
 }

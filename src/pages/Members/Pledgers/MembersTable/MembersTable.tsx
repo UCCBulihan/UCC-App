@@ -3,6 +3,7 @@ export interface Member {
   firstName: string;
   middleName: string;
   lastName: string;
+  nickname?: string;
   userId: number;
   isPledger: boolean;
   addedBy: string;
@@ -28,7 +29,14 @@ interface Props {
 }
 
 function initials(m: Member) {
-  return (m.firstName[0] || '') + (m.lastName[0] || '');
+  const fromName = (m.firstName?.[0] || '') + (m.lastName?.[0] || '');
+  if (fromName) return fromName;
+  return (m.nickname || '').slice(0, 2);
+}
+
+function displayName(m: Member) {
+  const name = `${m.firstName}${m.middleName ? ` ${m.middleName}` : ''} ${m.lastName}`.trim().replace(/\s+/g, ' ');
+  return name || (m.nickname || '');
 }
 
 export default function MembersTable({
@@ -77,7 +85,7 @@ export default function MembersTable({
                     <div className="member-cell">
                       <div className="avatar">{initials(m)}</div>
                       <span className="member-name">
-                        {m.firstName}{m.middleName ? ` ${m.middleName}` : ''} {m.lastName}
+                        {displayName(m)}
                       </span>
                       {onViewProfile && (
                         <button

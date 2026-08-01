@@ -4,8 +4,15 @@ import { db } from '../../../firebase/firebase';
 import NavigationBar from '../../Home/NavigationBar/NavigationBar';
 import { useMembersStore } from '../useMembersStore';
 
-function initials(firstName: string, lastName: string) {
-  return (firstName?.[0] || '') + (lastName?.[0] || '');
+function initials(firstName: string, lastName: string, nickname?: string) {
+  const fromName = (firstName?.[0] || '') + (lastName?.[0] || '');
+  if (fromName) return fromName;
+  return (nickname || '').slice(0, 2);
+}
+
+function displayName(firstName: string, middleName: string, lastName: string, nickname?: string) {
+  const name = `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`.trim().replace(/\s+/g, ' ');
+  return name || (nickname || '');
 }
 
 export default function ArchivesMembers() {
@@ -67,9 +74,9 @@ export default function ArchivesMembers() {
                       <tr key={m.id}>
                         <td>
                           <div className="member-cell">
-                            <div className="avatar">{initials(m.firstName, m.lastName)}</div>
+                            <div className="avatar">{initials(m.firstName, m.lastName, m.nickname)}</div>
                             <span className="member-name">
-                              {m.firstName}{m.middleName ? ` ${m.middleName}` : ''} {m.lastName}
+                              {displayName(m.firstName, m.middleName, m.lastName, m.nickname)}
                             </span>
                           </div>
                         </td>

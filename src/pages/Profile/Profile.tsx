@@ -6,12 +6,15 @@ import { db } from '../../firebase/firebase';
 import NavigationBar from '../Home/NavigationBar/NavigationBar';
 import { useMembersStore } from '../Members/useMembersStore';
 
-function initials(firstName: string, lastName: string) {
-  return (firstName?.[0] || '') + (lastName?.[0] || '');
+function initials(firstName: string, lastName: string, nickname?: string) {
+  const fromName = (firstName?.[0] || '') + (lastName?.[0] || '');
+  if (fromName) return fromName;
+  return (nickname || '').slice(0, 2);
 }
 
-function fullName(m: { firstName: string; middleName?: string; lastName: string }) {
-  return `${m.firstName}${m.middleName ? ` ${m.middleName}` : ''} ${m.lastName}`.trim().replace(/\s+/g, ' ');
+function fullName(m: { firstName: string; middleName?: string; lastName: string; nickname?: string }) {
+  const name = `${m.firstName}${m.middleName ? ` ${m.middleName}` : ''} ${m.lastName}`.trim().replace(/\s+/g, ' ');
+  return name || (m.nickname || '').trim();
 }
 
 function computeAge(dateOfBirth?: string) {
@@ -142,8 +145,10 @@ export default function Profile() {
   }
 
   async function handleSave() {
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      setError('First Name and Last Name are required.');
+    const hasFullName = form.firstName.trim() && form.lastName.trim();
+    const hasNickname = form.nickname.trim();
+    if (!hasFullName && !hasNickname) {
+      setError('Please provide either a First Name & Last Name, or a Nickname.');
       return;
     }
     setError('');
@@ -212,13 +217,13 @@ export default function Profile() {
                 <div className="profile-avatar">
                   {isAddMode
                     ? <i className="fa-solid fa-user-plus" aria-hidden="true" />
-                    : initials(form.firstName, form.lastName)}
+                    : initials(form.firstName, form.lastName, form.nickname)}
                 </div>
                 <div>
                   <h1>
                     {isAddMode
                       ? 'Add Member'
-                      : `${form.firstName}${form.middleName ? ` ${form.middleName}` : ''} ${form.lastName}`}
+                      : fullName(form)}
                   </h1>
                 </div>
               </div>
@@ -234,7 +239,7 @@ export default function Profile() {
               <p className="section-label">Basic Information</p>
               <div className="row-2">
                 <div className="field">
-                  <label htmlFor="firstName">First Name <span className="req">*</span></label>
+                  <label htmlFor="firstName">First Name</label>
                   <div className="input-wrap">
                     <input type="text" id="firstName" placeholder="e.g. John" value={form.firstName} onChange={handleChange} />
                   </div>
@@ -248,18 +253,21 @@ export default function Profile() {
               </div>
               <div className="row-2">
                 <div className="field">
-                  <label htmlFor="lastName">Last Name <span className="req">*</span></label>
+                  <label htmlFor="lastName">Last Name</label>
                   <div className="input-wrap">
                     <input type="text" id="lastName" placeholder="e.g. Smith" value={form.lastName} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="field">
-                  <label htmlFor="nickname">Nickname (Optional)</label>
+                  <label htmlFor="nickname">Nickname</label>
                   <div className="input-wrap">
                     <input type="text" id="nickname" value={form.nickname} onChange={handleChange} />
                   </div>
                 </div>
               </div>
+              <p className="field-note">
+                <span className="req">*</span> Required: First Name &amp; Last Name, or a Nickname.
+              </p>
               <div className="row-2">
                 <div className="field">
                   <label htmlFor="gender">Gender</label>
