@@ -151,7 +151,7 @@ export default function NavigationBar() {
 
       <nav className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar-header">
-          <a href="#" className="logo">UCC <span>App</span></a>
+          <a href="#" className="logo">Link <span>Up</span></a>
           <button
             className="sidebar-close"
             onClick={() => setIsOpen(false)}
