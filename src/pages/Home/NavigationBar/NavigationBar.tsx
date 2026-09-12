@@ -3,8 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth';
 import { MenuService } from '../../../../services/MenuService';
 import type { MenuItem } from '../../../../services/interface/IMenuService';
-// ⚠️ Adjust these paths to wherever useUserAccess.ts / firebase.ts actually
-// live in your project (they should sit next to each other).
 import { useUserAccess } from '../../../firebase/useUserAccess';
 import { auth } from '../../../firebase/firebase';
 import LogoutModal from './LogoutModal';
